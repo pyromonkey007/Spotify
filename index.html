@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>🚀 Daddys Spotify Player</title>
+  <title>🚀 Cyberpunk Spotify Player</title>
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <style>
     /* ---------- Cyberpunk Dark Theme ---------- */
@@ -14,22 +14,15 @@
       --accent-dim: rgba(57,255,20,0.2);
       --neon: drop-shadow(0 0 6px var(--accent));
     }
-    * { box-sizing: border-box; margin:0; padding:0 }
+    * { box-sizing: border-box; margin:0; padding:0; }
     body {
       font-family: 'Orbitron', sans-serif;
       background: var(--bg);
       color: var(--fg);
       padding: 1rem;
-      transition: background .3s, color .3s;
+      line-height: 1.4;
     }
-    body.dark {
-      background: #000;
-      color: #ccc;
-    }
-    h1,h2 {
-      margin: 1rem 0;
-      text-shadow: 0 0 4px var(--accent);
-    }
+    h1,h2 { margin: 1rem 0; text-shadow: 0 0 4px var(--accent); }
     button, select, input[type="range"], input[type="text"] {
       font-family: inherit;
       background: var(--accent-dim);
@@ -41,32 +34,26 @@
       text-shadow: var(--neon);
       transition: background .3s, transform .1s;
     }
-    button:hover, select:hover, input:hover {
-      background: var(--accent-dim);
-      transform: scale(1.02);
-    }
-    button:disabled, select:disabled, input:disabled {
-      opacity: 0.4;
-    }
-    ul { list-style: none; margin: 0.5rem 0; padding: 0 }
+    button:hover, select:hover, input:hover { background: var(--accent-dim); transform: scale(1.02); }
+    button:disabled, select:disabled, input:disabled { opacity: 0.4; }
+    ul { list-style: none; margin: 0.5rem 0; padding: 0; }
     li {
       padding: 0.4rem;
       border-bottom: 1px solid var(--accent-dim);
       cursor: pointer;
     }
-    li:hover { background: var(--accent-dim) }
-    label { display: block; margin: 0.5rem 0 }
+    li:hover { background: var(--accent-dim); }
+    label { display: block; margin: 0.5rem 0; }
     #controls, #nowPlaying, #playlistSection, #trackSection, #queueSection, #searchSection {
       border: 1px solid var(--accent-dim);
-      padding: 1rem;
-      margin: 1rem 0;
+      padding: 1rem; margin: 1rem 0;
       border-radius: 6px;
       box-shadow: var(--neon);
     }
-    #currentTrack { display:flex; align-items:center }
-    #currentTrack img { width:80px; height:80px; border-radius:4px; margin-right:1rem }
-    #visualizer { display:none; width:100%; height:100px; background:#000; margin-top:0.5rem }
-    #offlineStatus { color:red; display:none; margin-top:1rem; text-shadow:0 0 4px red }
+    #currentTrack img { width:80px; height:80px; border-radius:4px; margin-right:1rem; }
+    #currentTrack { display:flex; align-items:center; }
+    #visualizer { display:none; width:100%; height:100px; background:#000; margin-top:0.5rem; }
+    #offlineStatus { color: #f00; display:none; margin-top:1rem; text-shadow:0 0 4px red; }
   </style>
 </head>
 <body>
@@ -85,16 +72,18 @@
     <button id="nextBtn" disabled>⏭️ Next</button>
     <button id="shuffleBtn" disabled>🔀 Shuffle</button>
     <button id="repeatBtn" disabled>🔁 Repeat: Off</button>
+
     <label>
       Volume
       <input type="range" id="volumeSlider" min="0" max="100" value="50" disabled>
     </label>
+
     <label>
       Device
       <select id="deviceSelect" disabled></select>
     </label>
-    <button id="reloadResumeBtn" disabled>🔄 Reload &amp; Resume</button>
-    <button id="darkModeToggle" disabled>🌙 Toggle Dark Mode</button>
+
+    <button id="darkModeToggle">🌙 Toggle Dark Mode</button>
   </div>
 
   <!-- Now Playing -->
@@ -170,13 +159,12 @@
 
   // Globals
   let access_token, player, pollInterval, playlistTrackUris = [], queuedTracks = [];
-
+  
   // ---------- UTILS ----------
   function randStr(len) {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-    let s='', arr=new Uint8Array(len);
-    crypto.getRandomValues(arr);
-    arr.forEach(i=>s+=chars[i%chars.length]);
+    let s=''; const arr = new Uint8Array(len); crypto.getRandomValues(arr);
+    arr.forEach(i=>s += chars[i % chars.length]);
     return s;
   }
   function b64Url(buff) {
@@ -192,42 +180,12 @@
     return fetch('https://api.spotify.com/v1'+path, opts).then(r=>r.json());
   }
 
-  // ---------- TOKEN PERSISTENCE ----------
-  async function restoreOrRefreshToken() {
-    const stored = localStorage.getItem('sp_access_token');
-    const expires = +localStorage.getItem('sp_token_expires')||0;
-    const refresh = localStorage.getItem('sp_refresh_token');
-    if (stored && Date.now()<expires) {
-      access_token = stored;
-      return true;
-    }
-    if (refresh) {
-      const res = await fetch('https://accounts.spotify.com/api/token',{
-        method:'POST',
-        headers:{'Content-Type':'application/x-www-form-urlencoded'},
-        body: new URLSearchParams({
-          grant_type:'refresh_token',
-          refresh_token: refresh,
-          client_id
-        })
-      }).then(r=>r.json());
-      if (res.access_token) {
-        access_token = res.access_token;
-        const newExp = Date.now() + res.expires_in*1000;
-        localStorage.setItem('sp_access_token', res.access_token);
-        localStorage.setItem('sp_token_expires', newExp);
-        return true;
-      }
-    }
-    return false;
-  }
-
   // ---------- AUTH FLOW ----------
   async function redirectToAuth() {
     const state = randStr(16), cv = randStr(64);
     localStorage.setItem(STATE_KEY, state);
     localStorage.setItem(CODE_VERIFIER_KEY, cv);
-    const challenge = b64Url(await sha256(cv));
+    const hash = await sha256(cv), challenge = b64Url(hash);
     const params = new URLSearchParams({
       response_type:'code', client_id, scope:scopes,
       redirect_uri, state,
@@ -241,26 +199,19 @@
     const qs = new URLSearchParams(window.location.search);
     const code = qs.get('code'), state = qs.get('state');
     if (!code) return;
-    if (state!==localStorage.getItem(STATE_KEY)) return alert('Auth mismatch');
+    if (state !== localStorage.getItem(STATE_KEY)) return alert('Auth mismatch');
     localStorage.removeItem(STATE_KEY);
     const cv = localStorage.getItem(CODE_VERIFIER_KEY);
     localStorage.removeItem(CODE_VERIFIER_KEY);
     const token = await fetch('https://accounts.spotify.com/api/token',{
-      method:'POST',
-      headers:{'Content-Type':'application/x-www-form-urlencoded'},
+      method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'},
       body: new URLSearchParams({
-        grant_type:'authorization_code',
-        code, redirect_uri, client_id,
-        code_verifier: cv
+        grant_type:'authorization_code', code, redirect_uri,
+        client_id, code_verifier:cv
       })
     }).then(r=>r.json());
     if (!token.access_token) return alert('Token error');
-    access_token    = token.access_token;
-    window.refresh_token = token.refresh_token;
-    const exp = Date.now()+token.expires_in*1000;
-    localStorage.setItem('sp_access_token',   token.access_token);
-    localStorage.setItem('sp_refresh_token',  token.refresh_token);
-    localStorage.setItem('sp_token_expires',  exp);
+    access_token = token.access_token;
     history.replaceState(null,'',redirect_uri);
     document.getElementById('status').textContent = '✅ Logged in';
     enableControls();
@@ -269,12 +220,11 @@
 
   // ---------- ENABLE UI ----------
   function enableControls() {
-    ['prevBtn','playPause','nextBtn','shuffleBtn','repeatBtn',
-     'volumeSlider','deviceSelect','eqPreset','enableVisualizer',
-     'searchQuery','searchBtn','reloadResumeBtn','darkModeToggle']
-    .forEach(id=>document.getElementById(id).disabled=false);
-
-    document.getElementById('reloadResumeBtn').onclick = ()=>location.reload();
+    [
+      'prevBtn','playPause','nextBtn','shuffleBtn','repeatBtn',
+      'volumeSlider','deviceSelect','eqPreset','enableVisualizer',
+      'searchQuery','searchBtn'
+    ].forEach(id=>document.getElementById(id).disabled = false);
   }
 
   // ---------- INIT PLAYER & UI ----------
@@ -288,7 +238,7 @@
     document.getElementById('repeatBtn').onclick = toggleRepeat;
     document.getElementById('darkModeToggle').onclick = ()=>document.body.classList.toggle('dark');
     window.addEventListener('offline', ()=>document.getElementById('offlineStatus').style.display='block');
-    window.addEventListener('online',  ()=>document.getElementById('offlineStatus').style.display='none');
+    window.addEventListener('online', ()=>document.getElementById('offlineStatus').style.display='none');
   }
 
   // ---------- PLAYLISTS & COLLABORATION ----------
@@ -298,51 +248,47 @@
     ul.innerHTML=''; sel.innerHTML='';
     // Liked Songs
     const liked = document.createElement('li');
-    liked.textContent='❤️ Liked Songs'; liked.onclick=fetchLiked;
+    liked.textContent='❤️ Liked Songs'; liked.onclick = fetchLiked;
     ul.appendChild(liked);
     data.items.forEach(pl=>{
-      const li=document.createElement('li');
+      const li = document.createElement('li');
       li.textContent=pl.name; li.onclick=()=>fetchTracks(pl.id);
       ul.appendChild(li);
-      const opt=document.createElement('option');
+      const opt = document.createElement('option');
       opt.value=pl.id; opt.textContent=pl.name; sel.appendChild(opt);
     });
   }
-
-  async function fetchTracks(id) {
+  async function fetchTracks(id) { // playlist
     currentContext=id;
     const data = await api(`/playlists/${id}/tracks?limit=100`);
     const tracks = data.items.map(i=>i.track);
     populateTracks(tracks);
     startCollabPolling(id);
   }
-
   async function fetchLiked() {
     currentContext='liked';
     const data = await api('/me/tracks?limit=100');
     populateTracks(data.items.map(i=>i.track));
     clearInterval(pollInterval);
   }
-
   function populateTracks(tracks) {
-    const ul=document.getElementById('tracks');
-    ul.innerHTML=''; playlistTrackUris=tracks.map(t=>t.uri);
+    const ul = document.getElementById('tracks');
+    ul.innerHTML=''; playlistTrackUris = tracks.map(t=>t.uri);
     tracks.forEach((t,i)=>{
-      const li=document.createElement('li');
+      const li = document.createElement('li');
       li.textContent=`${t.name} — ${t.artists.map(a=>a.name).join(', ')}`;
       li.onclick=()=>playFrom(currentContext,t.uri,i);
       ul.appendChild(li);
     });
   }
-
   function startCollabPolling(plId) {
     clearInterval(pollInterval);
     pollInterval = setInterval(async ()=>{
       const data = await api(`/playlists/${plId}/tracks?limit=100`);
       const uris = data.items.map(i=>i.track.uri);
       const newUris = uris.filter(u=>!playlistTrackUris.includes(u));
-      newUris.forEach(u=>queueTrack(u));
-      if (newUris.length) playlistTrackUris=uris;
+      newUris.forEach(u=>{ queueTrack(u); });
+      if (newUris.length) playlistTrackUris = uris;
     }, 30000);
   }
 
@@ -353,22 +299,20 @@
       : { context_uri:`spotify:playlist:${ctx}`, offset:{position:pos} };
     api('/me/player/play',{method:'PUT',body:JSON.stringify(body)});
   }
-
   function queueTrack(uri) {
     api(`/me/player/queue?uri=${encodeURIComponent(uri)}`,{method:'POST'});
-    queuedTracks.push(uri);
-    updateQueueUI();
+    queuedTracks.push(uri); updateQueueUI();
   }
-
   function updateQueueUI() {
-    const ul=document.getElementById('queue');
+    const ul = document.getElementById('queue');
     ul.innerHTML='';
-    queuedTracks.forEach((u,i)=>{
-      const li=document.createElement('li');
-      const x=document.createElement('button');
-      x.textContent='✖'; x.onclick=e=>{e.stopPropagation(); queuedTracks.splice(i,1); updateQueueUI()};
-      li.textContent=u.split(':').pop();
-      li.prepend(x,' ');
+    queuedTracks.forEach((uri,i)=>{
+      const li = document.createElement('li');
+      li.textContent=uri.split(':').pop(); // stub, ideally fetch track name
+      // Remove button
+      const x = document.createElement('button');
+      x.textContent='✖'; x.onclick=e=>{e.stopPropagation(); queuedTracks.splice(i,1);updateQueueUI();};
+      li.prepend(x);
       ul.appendChild(li);
     });
   }
@@ -379,34 +323,30 @@
     const sel = document.getElementById('deviceSelect');
     sel.innerHTML='';
     data.devices.forEach(d=>{
-      const opt=document.createElement('option');
+      const opt = document.createElement('option');
       opt.value=d.id; opt.text=d.name + (d.is_active?' (active)':'');
       sel.appendChild(opt);
     });
-    sel.onchange=()=>api('/me/player',{method:'PUT',body:JSON.stringify({device_ids:[sel.value]})});
+    sel.onchange = ()=>api('/me/player',{method:'PUT',body:JSON.stringify({device_ids:[sel.value]})});
   }
 
   // ---------- SEARCH & ADD ----------
   async function searchTracks() {
-    const q=document.getElementById('searchQuery').value.trim();
+    const q = document.getElementById('searchQuery').value.trim();
     if (!q) return alert('Enter text');
     const data = await api(`/search?type=track&limit=10&q=${encodeURIComponent(q)}`);
-    const ul=document.getElementById('searchResults');
+    const ul = document.getElementById('searchResults');
     ul.innerHTML='';
     data.tracks.items.forEach(t=>{
       const li=document.createElement('li');
-      const playBtn=document.createElement('button');
-      playBtn.text='▶️'; playBtn.onclick=e=>{e.stopPropagation(); playSingle(t.uri)};
-      const addBtn=document.createElement('button');
-      addBtn.text='➕'; addBtn.onclick=e=>{e.stopPropagation(); const pid=document.getElementById('playlistSelect').value; api(`/playlists/${pid}/tracks`,{method:'POST',body:JSON.stringify({uris:[t.uri]})}).then(()=>alert('✅ Added'))};
-      const queueBtn=document.createElement('button');
-      queueBtn.text='📥'; queueBtn.onclick=e=>{e.stopPropagation(); queueTrack(t.uri)};
-      li.textContent=`${t.name} — ${t.artists.map(a=>a.name).join(', ')}`;
+      const playBtn=document.createElement('button'); playBtn.text='▶️'; playBtn.onclick=e=>{e.stopPropagation(); playSingle(t.uri);};
+      const addBtn=document.createElement('button'); addBtn.text='➕'; addBtn.onclick=e=>{e.stopPropagation();const pid=document.getElementById('playlistSelect').value;api(`/playlists/${pid}/tracks`,{method:'POST',body:JSON.stringify({uris:[t.uri]})}).then(()=>alert('✅ Added'));};
+      const queueBtn=document.createElement('button'); queueBtn.text='📥'; queueBtn.onclick=e=>{e.stopPropagation();queueTrack(t.uri);};
+      li.textContent=`${t.name}—${t.artists.map(a=>a.name).join(', ')}`;
       li.prepend(playBtn,' ',addBtn,' ',queueBtn);
       ul.appendChild(li);
     });
   }
-
   function playSingle(uri) {
     api('/me/player/play',{method:'PUT',body:JSON.stringify({uris:[uri]})});
   }
@@ -418,9 +358,7 @@
     api(`/me/player/repeat?state=${repeatStates[rptIdx]}`,{method:'PUT'});
     document.getElementById('repeatBtn').textContent=`🔁 Repeat: ${repeatStates[rptIdx]}`;
   }
-
-  document.getElementById('volumeSlider').oninput = e=>
-    api(`/me/player/volume?volume_percent=${e.target.value}`,{method:'PUT'});
+  document.getElementById('volumeSlider').oninput = e=>api(`/me/player/volume?volume_percent=${e.target.value}`,{method:'PUT'});
 
   // ---------- PROGRESS BAR & NOW PLAYING ----------
   function loadSDK() {
@@ -430,10 +368,7 @@
       document.head.appendChild(s);
     }
     window.onSpotifyWebPlaybackSDKReady = () => {
-      player = new Spotify.Player({
-        name:'Cyberpunk PKCE',
-        getOAuthToken:cb=>cb(access_token)
-      });
+      player = new Spotify.Player({ name:'Cyberpunk PKCE', getOAuthToken:cb=>cb(access_token) });
       player.connect().then(ok=>{
         if (!ok) return;
         document.getElementById('status').textContent='🎧 Device Ready';
@@ -444,77 +379,65 @@
         player.addListener('player_state_changed', state=>{
           if (!state) return;
           player.resume(); // auto‑resume
-          const paused = state.paused;
+          const paused=state.paused;
           document.getElementById('playPause').textContent = paused?'▶️ Play':'⏸️ Pause';
-          const t = state.track_window.current_track;
-          document.getElementById('trackArt').src = t.album.images[0]?.url||'';
+          const t=state.track_window.current_track;
+          document.getElementById('trackArt').src = t.album.images[0]?.url;
           document.getElementById('trackInfo').textContent = `${t.name} — ${t.artists.map(a=>a.name).join(', ')}`;
-          const pb = document.getElementById('progressBar');
-          pb.max = state.track_window.duration;
-          pb.value = state.position;
+          const pb=document.getElementById('progressBar');
+          pb.max=state.track_window.duration; pb.value=state.position;
         });
-        document.getElementById('progressBar').onchange = e=>
-          api(`/me/player/seek?position_ms=${e.target.value}`,{method:'PUT'});
+        document.getElementById('progressBar').onchange = e=>api(`/me/player/seek?position_ms=${e.target.value}`,{method:'PUT'});
         document.getElementById('playPause').onclick = ()=>player.togglePlay();
       });
     };
   }
 
   // ---------- EQUALIZER & VISUALIZER ----------
-  let audioCtx, eqFilters = [], analyser;
+  let audioCtx, eqFilters=[], analyser;
   function setupEQVisualizer() {
     audioCtx = new (AudioContext||webkitAudioContext)();
     const freqs=[60,170,350,1000,3500,10000];
     eqFilters = freqs.map(f=>{
-      const fs = audioCtx.createBiquadFilter();
+      const fs=audioCtx.createBiquadFilter();
       fs.type='peaking'; fs.frequency.value=f; fs.Q.value=1; fs.gain.value=0;
       return fs;
     });
-    analyser = audioCtx.createAnalyser(); analyser.fftSize = 256;
-    eqFilters.reduce((p,c)=>{ p.connect(c); return c; })
-             .connect(analyser).connect(audioCtx.destination);
-
-    document.getElementById('enableVisualizer').onchange = e=>{
-      const canvas = document.getElementById('visualizer');
-      canvas.style.display = e.target.checked?'block':'none';
+    analyser = audioCtx.createAnalyser(); analyser.fftSize=256;
+    eqFilters.reduce((prev,cur)=>{ prev.connect(cur); return cur; })
+      .connect(analyser).connect(audioCtx.destination);
+    document.getElementById('enableVisualizer').onchange=e=>{
+      const canvas=document.getElementById('visualizer');
+      canvas.style.display=e.target.checked?'block':'none';
       if (e.target.checked) drawVisual(canvas.getContext('2d'));
     };
-    document.getElementById('eqPreset').onchange = e=>{
-      const p = e.target.value;
+    document.getElementById('eqPreset').onchange=e=>{
+      const p=e.target.value;
       eqFilters.forEach((f,i)=>{
-        if (p=='bass')      f.gain.value = i<2?6:0;
-        else if (p=='treble')f.gain.value = i>3?6:0;
-        else if (p=='vocal') f.gain.value = (i>1&&i<4)?4:0;
-        else                 f.gain.value = 0;
+        if(p=='bass') f.gain.value=i<2?6:0;
+        else if(p=='treble') f.gain.value=i>3?6:0;
+        else if(p=='vocal') f.gain.value=(i>1&&i<4)?4:0;
+        else f.gain.value=0;
       });
     };
   }
-
   function drawVisual(ctx) {
-    const canvas = document.getElementById('visualizer'), buf = new Uint8Array(analyser.frequencyBinCount);
+    const canvas=document.getElementById('visualizer');
+    const buf=new Uint8Array(analyser.frequencyBinCount);
     analyser.getByteFrequencyData(buf);
     ctx.clearRect(0,0,canvas.width,canvas.height);
-    const w = canvas.width/buf.length;
+    const w=canvas.width/buf.length;
     buf.forEach((v,i)=>{
-      ctx.fillStyle = `hsl(${i/buf.length*360},100%,50%)`;
-      const h = (v/255)*canvas.height;
-      ctx.fillRect(i*w, canvas.height-h, w, h);
+      ctx.fillStyle=`hsl(${i/buf.length*360},100%,50%)`;
+      const h=(v/255)*canvas.height;
+      ctx.fillRect(i*w,canvas.height-h,w,h);
     });
     requestAnimationFrame(()=>drawVisual(ctx));
   }
 
   // ---------- BOOTSTRAP ----------
-  window.addEventListener('load', async ()=>{
-    if (await restoreOrRefreshToken()) {
-      document.getElementById('status').textContent = '🔑 Restored session';
-      enableControls();
-      initPlayerAndUI();
-    } else {
-      handleRedirect();
-    }
-  });
-
   document.getElementById('login').onclick = redirectToAuth;
+  window.addEventListener('load', handleRedirect);
 </script>
 
 </body>
