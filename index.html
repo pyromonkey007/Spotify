@@ -2,19 +2,31 @@
 <html>
 <head>
   <meta charset="UTF-8">
-  <title>Minimal Spotify Web Player + Search</title>
+  <title>Spotify Player + Search (Debug)</title>
   <style>
     body { font-family: sans-serif; max-width: 600px; margin: 2rem auto; }
-    button, select, input { margin: 0.5rem 0; padding: 0.4rem; font-size: 1rem; }
+    button, select, input, a { margin: 0.5rem 0; padding: 0.4rem; font-size: 1rem; }
+    a { display: inline-block; background: #1DB954; color: #fff; text-decoration: none; border-radius: 4px; }
     ul { list-style: none; padding: 0; }
     li { cursor: pointer; margin: 0.25rem 0; }
     li:hover { text-decoration: underline; }
     label { display: block; margin-top: 1rem; }
+    pre#debugHash { color: red; word-break: break-all; }
   </style>
 </head>
 <body>
+  <!-- DEBUG: shows the raw hash fragment if Safari delivers one -->
+  <pre id="debugHash">–– no hash fragment ––</pre>
+
   <h1>Spotify Player + Search</h1>
-  <button id="login">Log in with Spotify</button>
+
+  <!-- Direct link into the Implicit Grant flow -->
+  <a
+    id="login"
+    href="https://accounts.spotify.com/authorize?response_type=token&client_id=b00e3fe2a9394a86a64048c96a3ff5f3&redirect_uri=https%3A%2F%2Fpyromonkey007.github.io%2FSpotify%2F&scope=streaming%20user-read-private%20user-read-email%20user-read-playback-state%20user-modify-playback-state%20playlist-read-private%20playlist-modify-public%20playlist-modify-private&show_dialog=true&login_hint=nikhil.n.bhatnagar%40gmail.com"
+  >
+    Log in with Spotify
+  </a>
   <div id="status" style="margin:1rem 0; font-weight:bold;"></div>
 
   <label>
@@ -32,8 +44,12 @@
   <ul id="searchResults"></ul>
 
   <script>
-    // —— CONFIGURE ——
-    const client_id    = 'b00e3fe2a9394a86a64048c96a3ff5f3';  
+    // --- DEBUG: surface any hash fragment Safari gives us ---
+    document.getElementById('debugHash').innerText =
+      window.location.hash || '–– no hash fragment ––';
+
+    // —— CONFIG ——
+    const client_id    = 'b00e3fe2a9394a86a64048c96a3ff5f3';
     const redirect_uri = window.location.origin + window.location.pathname;
     const scopes = [
       'streaming',
@@ -46,7 +62,7 @@
       'playlist-modify-private'
     ];
 
-    // 1) Parse token from URL hash
+    // Parse access token from URL hash (Implicit Grant)
     window.addEventListener('load', () => {
       if (location.hash) {
         const hash = location.hash.substring(1).split('&').reduce((acc, part) => {
@@ -64,37 +80,23 @@
       }
     });
 
-    // 2) Trigger Implicit Grant login
-    document.getElementById('login').onclick = () => {
-      const url = 'https://accounts.spotify.com/authorize'
-        + '?response_type=token'
-        + '&client_id='    + encodeURIComponent(client_id)
-        + '&scope='        + encodeURIComponent(scopes.join(' '))
-        + '&redirect_uri=' + encodeURIComponent(redirect_uri)
-        + '&show_dialog=true';
-      window.location = url;
-    };
-
-    // 3) Fetch & render playlists + dropdown
+    // Fetch & render playlists + populate dropdown
     async function fetchPlaylists() {
       const res  = await fetch('https://api.spotify.com/v1/me/playlists', {
         headers: { 'Authorization': 'Bearer ' + access_token }
       });
       const data = await res.json();
-
-      // Populate ul#playlists for playback
-      const ul = document.getElementById('playlists');
-      ul.innerHTML = '';
-      // Populate select#playlistSelect for additions
+      const ul  = document.getElementById('playlists');
       const sel = document.getElementById('playlistSelect');
+      ul.innerHTML = '';
       sel.innerHTML = '';
       data.items.forEach(pl => {
-        // playback list
+        // Playback list
         const li = document.createElement('li');
         li.textContent = pl.name;
         li.onclick = () => playPlaylist(pl.id);
         ul.appendChild(li);
-        // add-to dropdown
+        // Dropdown
         const opt = document.createElement('option');
         opt.value = pl.id;
         opt.textContent = pl.name;
@@ -102,7 +104,7 @@
       });
     }
 
-    // 4) Play a playlist by ID
+    // Start playing a playlist
     function playPlaylist(playlistId) {
       fetch('https://api.spotify.com/v1/me/player/play', {
         method: 'PUT',
@@ -114,7 +116,7 @@
       });
     }
 
-    // 5) Load Web Playback SDK & hook play/pause + auto-resume
+    // Load Web Playback SDK, transfer playback & hook play/pause + auto-resume
     function loadSDKAndPlayer() {
       if (!window.Spotify) {
         const s = document.createElement('script');
@@ -123,18 +125,16 @@
       }
       window.onSpotifyWebPlaybackSDKReady = () => {
         const player = new Spotify.Player({
-          name: 'Work Player',
+          name: 'iPhone Player',
           getOAuthToken: cb => cb(access_token),
         });
         player.connect().then(success => {
           if (success) {
             document.getElementById('playPause').disabled = false;
-            // auto-resume if paused by network
             player.addListener('player_state_changed', ({ paused }) => {
               if (paused) player.resume();
             });
             player.addListener('ready', ({ device_id }) => {
-              // transfer playback here
               fetch('https://api.spotify.com/v1/me/player', {
                 method: 'PUT',
                 headers: {
@@ -150,14 +150,13 @@
       };
     }
 
-    // 6) Search for tracks
+    // Wire up search
     document.getElementById('searchBtn').onclick = searchTracks;
     async function searchTracks() {
       const q = document.getElementById('searchQuery').value.trim();
       if (!q) return alert('Enter a search term');
       const res = await fetch(
-        `https://api.spotify.com/v1/search?type=track&limit=10&q=` 
-        + encodeURIComponent(q),
+        `https://api.spotify.com/v1/search?type=track&limit=10&q=${encodeURIComponent(q)}`,
         { headers: { 'Authorization': 'Bearer ' + access_token } }
       );
       const { tracks } = await res.json();
@@ -174,7 +173,7 @@
       });
     }
 
-    // 7) Add track URI to selected playlist
+    // Add a track to the chosen playlist
     async function addTrackToPlaylist(playlistId, trackUri) {
       const res = await fetch(
         `https://api.spotify.com/v1/playlists/${playlistId}/tracks`,
