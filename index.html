@@ -2,19 +2,19 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Spotify Player (PKCE, SessionStorage)</title>
+  <title>Spotify Player + Search (PKCE Fixed)</title>
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <style>
     body { font-family: sans-serif; max-width: 600px; margin: 2rem auto; }
-    button, input, select { margin: .5rem 0; padding: .5rem; font-size: 1rem; }
+    button, input, select { margin: 0.5rem 0; padding: 0.5rem; font-size: 1rem; }
     ul { list-style: none; padding: 0; }
-    li { cursor: pointer; margin: .25rem 0; }
+    li { cursor: pointer; margin: 0.25rem 0; }
     li:hover { text-decoration: underline; }
     #status { font-weight: bold; margin: 1rem 0; }
   </style>
 </head>
 <body>
-  <h1>Spotify Player + Search</h1>
+  <h1>Spotify Player + Search (PKCE Fixed)</h1>
   <button id="login">Log in with Spotify</button>
   <div id="status"></div>
 
@@ -22,7 +22,7 @@
   <ul id="playlists"></ul>
   <button id="playPause" disabled>Play / Pause</button>
 
-  <h2>Search &amp; Play</h2>
+  <h2>Search & Play</h2>
   <input id="searchQuery" placeholder="Search tracks…" />
   <button id="searchBtn" disabled>Search</button>
   <ul id="searchResults"></ul>
@@ -30,7 +30,7 @@
   <script>
     // —— CONFIG —— 
     const client_id    = 'b00e3fe2a9394a86a64048c96a3ff5f3';
-    const redirect_uri = window.location.origin + window.location.pathname;  // must match Dashboard
+    const redirect_uri = 'https://pyromonkey007.github.io/Spotify/';
     const scopes       = [
       'streaming',
       'user-read-private',
@@ -40,113 +40,94 @@
       'playlist-read-private'
     ].join(' ');
 
-    const stateKey        = 'spotify_auth_state';
-    const codeVerifierKey = 'spotify_code_verifier';
-    let access_token;
+    const STATE_KEY    = 'spotify_pkce_state';
+    const VERIFIER_KEY = 'spotify_pkce_verifier';
+    let access_token, player;
 
-    // --- Clear any old PKCE items (avoid stale state) ---
-    sessionStorage.removeItem(stateKey);
-    sessionStorage.removeItem(codeVerifierKey);
-
-    // Utility: random string
-    function generateRandomString(length) {
+    // Util: random string
+    function randStr(len) {
       const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-      let result = '';
-      const array = new Uint8Array(length);
-      window.crypto.getRandomValues(array);
-      for (let i=0; i<length; i++) result += chars[array[i] % chars.length];
-      return result;
+      let s = '', arr = new Uint8Array(len);
+      crypto.getRandomValues(arr);
+      arr.forEach(i => s += chars[i % chars.length]);
+      return s;
     }
-    // Utility: base64-urlencode
-    function base64UrlEncode(buffer) {
+    // Util: base64-urlencode
+    function b64url(buffer) {
       return btoa(String.fromCharCode(...new Uint8Array(buffer)))
         .replace(/=+$/,'').replace(/\+/g,'-').replace(/\//g,'_');
     }
-    // Utility: SHA256
-    async function sha256(plain) {
-      const encoder = new TextEncoder();
-      const data = encoder.encode(plain);
-      return window.crypto.subtle.digest('SHA-256', data);
+    // Util: sha256
+    async function sha256(msg) {
+      const buf = new TextEncoder().encode(msg);
+      return crypto.subtle.digest('SHA-256', buf);
     }
 
-    // 1) Start PKCE flow
+    // 1) Redirect to Spotify with PKCE
     async function redirectToAuth() {
-      const state = generateRandomString(16);
-      sessionStorage.setItem(stateKey, state);
+      const state = randStr(16);
+      const verifier = randStr(64);
+      sessionStorage.setItem(STATE_KEY, state);
+      sessionStorage.setItem(VERIFIER_KEY, verifier);
 
-      const codeVerifier = generateRandomString(64);
-      sessionStorage.setItem(codeVerifierKey, codeVerifier);
-
-      const hashed = await sha256(codeVerifier);
-      const codeChallenge = base64UrlEncode(hashed);
-
+      const challenge = b64url(await sha256(verifier));
       const params = new URLSearchParams({
-        response_type:    'code',
-        client_id:        client_id,
-        scope:            scopes,
-        redirect_uri:     redirect_uri,
-        state:            state,
+        response_type: 'code',
+        client_id, scope: scopes,
+        redirect_uri, state,
         code_challenge_method: 'S256',
-        code_challenge:   codeChallenge,
-        show_dialog:      'true'
+        code_challenge: challenge,
+        show_dialog: 'true'
       });
-      window.location = `https://accounts.spotify.com/authorize?${params}`;
+      window.location = 'https://accounts.spotify.com/authorize?' + params;
     }
 
-    // 2) Handle redirect back
+    // 2) Handle Spotify redirect
     async function handleRedirect() {
       const qs = new URLSearchParams(window.location.search);
       const code  = qs.get('code');
       const state = qs.get('state');
-      if (!code) return;  // not a redirect
+      if (!code) return;
 
-      console.log('Returned state:', state);
-      console.log('Stored state:  ', sessionStorage.getItem(stateKey));
-
-      // Validate state
-      const savedState = sessionStorage.getItem(stateKey);
-      sessionStorage.removeItem(stateKey);
+      const savedState = sessionStorage.getItem(STATE_KEY);
       if (state !== savedState) {
-        document.getElementById('status').textContent = '❌ State mismatch — please try again';
+        document.getElementById('status').textContent = '❌ State mismatch — try again';
         return;
       }
+      sessionStorage.removeItem(STATE_KEY);
 
-      // Exchange code for token
-      const codeVerifier = sessionStorage.getItem(codeVerifierKey);
-      sessionStorage.removeItem(codeVerifierKey);
+      const verifier = sessionStorage.getItem(VERIFIER_KEY);
+      sessionStorage.removeItem(VERIFIER_KEY);
 
+      const body = new URLSearchParams({
+        grant_type: 'authorization_code',
+        code, redirect_uri,
+        client_id, code_verifier: verifier
+      });
       const tokenRes = await fetch('https://accounts.spotify.com/api/token', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: new URLSearchParams({
-          grant_type:    'authorization_code',
-          code:          code,
-          redirect_uri:  redirect_uri,
-          client_id:     client_id,
-          code_verifier: codeVerifier
-        })
+        headers: { 'Content-Type':'application/x-www-form-urlencoded' },
+        body
       });
       const tokenData = await tokenRes.json();
       if (!tokenData.access_token) {
-        console.error(tokenData);
         document.getElementById('status').textContent = '❌ Token exchange failed';
+        console.error(tokenData);
         return;
       }
 
       access_token = tokenData.access_token;
       history.replaceState(null, '', redirect_uri);
       document.getElementById('status').textContent = '✅ Logged in';
-
-      initPlayerAndUI();
+      bootstrapPlayer();
     }
 
-    // 3) Init UI & Player
-    function initPlayerAndUI() {
-      document.getElementById('searchBtn').disabled = false;
-      document.getElementById('playPause').disabled = false;
+    // 3) Initialize UI & Player
+    function bootstrapPlayer() {
+      document.getElementById('searchBtn').disabled  = false;
+      document.getElementById('playPause').disabled  = false;
       fetchPlaylists();
-      loadSDKAndPlayer();
-
+      loadSDK();
       document.getElementById('searchBtn').onclick = searchTracks;
       document.getElementById('playPause').onclick = () => player.togglePlay();
     }
@@ -154,7 +135,7 @@
     // Fetch & render playlists
     async function fetchPlaylists() {
       const res = await fetch('https://api.spotify.com/v1/me/playlists', {
-        headers: { 'Authorization': 'Bearer ' + access_token }
+        headers: { 'Authorization':'Bearer '+access_token }
       });
       const data = await res.json();
       const ul = document.getElementById('playlists');
@@ -162,30 +143,30 @@
       data.items.forEach(pl => {
         const li = document.createElement('li');
         li.textContent = pl.name;
-        li.onclick = () => playPlaylist(pl.id);
+        li.onclick      = () => playPlaylist(pl.id);
         ul.appendChild(li);
       });
     }
 
-    // Play selected playlist
-    function playPlaylist(playlistId) {
+    // Play a playlist
+    function playPlaylist(id) {
       fetch('https://api.spotify.com/v1/me/player/play', {
         method: 'PUT',
         headers: {
-          'Authorization': 'Bearer ' + access_token,
-          'Content-Type':  'application/json'
+          'Authorization':'Bearer '+access_token,
+          'Content-Type':'application/json'
         },
-        body: JSON.stringify({ context_uri: 'spotify:playlist:' + playlistId })
+        body: JSON.stringify({ context_uri: 'spotify:playlist:' + id })
       });
     }
 
-    // Search & play tracks directly
+    // Search & play
     async function searchTracks() {
       const q = document.getElementById('searchQuery').value.trim();
-      if (!q) { alert('Enter a search term'); return; }
+      if (!q) return alert('Enter search term');
       const res = await fetch(
         `https://api.spotify.com/v1/search?type=track&limit=5&q=${encodeURIComponent(q)}`, {
-          headers: { 'Authorization': 'Bearer ' + access_token }
+          headers: { 'Authorization':'Bearer '+access_token }
         }
       );
       const { tracks } = await res.json();
@@ -194,23 +175,20 @@
       tracks.items.forEach(t => {
         const li = document.createElement('li');
         li.textContent = `${t.name} — ${t.artists.map(a=>a.name).join(', ')}`;
-        li.onclick = () => {
-          fetch('https://api.spotify.com/v1/me/player/play', {
-            method: 'PUT',
-            headers: {
-              'Authorization': 'Bearer ' + access_token,
-              'Content-Type':  'application/json'
-            },
-            body: JSON.stringify({ uris: [ t.uri ] })
-          });
-        };
+        li.onclick = () => fetch('https://api.spotify.com/v1/me/player/play', {
+          method: 'PUT',
+          headers: {
+            'Authorization':'Bearer '+access_token,
+            'Content-Type':'application/json'
+          },
+          body: JSON.stringify({ uris: [ t.uri ] })
+        });
         ul.appendChild(li);
       });
     }
 
-    // Load Web Playback SDK
-    let player;
-    function loadSDKAndPlayer() {
+    // Load the Web Playback SDK
+    function loadSDK() {
       if (!window.Spotify) {
         const s = document.createElement('script');
         s.src = 'https://sdk.scdn.co/spotify-player.js';
@@ -218,7 +196,7 @@
       }
       window.onSpotifyWebPlaybackSDKReady = () => {
         player = new Spotify.Player({
-          name: 'Web Player',
+          name: 'PKCE Player',
           getOAuthToken: cb => cb(access_token),
         });
         player.connect().then(success => {
@@ -230,8 +208,8 @@
               fetch('https://api.spotify.com/v1/me/player', {
                 method: 'PUT',
                 headers: {
-                  'Authorization': 'Bearer ' + access_token,
-                  'Content-Type':  'application/json'
+                  'Authorization':'Bearer '+access_token,
+                  'Content-Type':'application/json'
                 },
                 body: JSON.stringify({ device_ids: [ device_id ] })
               });
@@ -241,9 +219,9 @@
       };
     }
 
-    // Bootstrap on load
-    window.addEventListener('load', handleRedirect);
+    // Wire up login & redirect
     document.getElementById('login').onclick = redirectToAuth;
+    window.addEventListener('load', handleRedirect);
   </script>
 </body>
 </html>
