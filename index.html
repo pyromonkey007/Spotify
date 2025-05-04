@@ -109,7 +109,7 @@
     }
     #playlistSection li.selected, #trackSection li.playing {
       background: var(--accent);
-      color: var(--bg);
+      color: var(--fg);
       animation: glow 1.5s ease-in-out infinite;
     }
     #playlistSection img {
@@ -248,19 +248,34 @@
       loadSDK();
     }
 
-    async function loadPlaylists(){
-      const data = await api('/me/playlists?limit=50');
-      const ul = document.getElementById('playlists');
-      ul.innerHTML='';
-      data.items.forEach(pl=>{
-        const li=document.createElement('li');
-        li.dataset.id=pl.id;
-        const img=document.createElement('img');
-        img.src=pl.images[0]?.url; li.appendChild(img);
-        li.appendChild(document.createTextNode(pl.name));
-        li.onclick=()=>loadTracks(pl.id);
-        ul.appendChild(li);
-      });
+    async function loadPlaylists() {
+  const ul = document.getElementById('playlists');
+  ul.innerHTML = '';
+
+  let url = 'https://api.spotify.com/v1/me/playlists?limit=50';
+  const all = [];
+
+  // Fetch page after page until there’s no `next`
+  while (url) {
+    const res  = await fetch(url, {
+      headers: { 'Authorization': 'Bearer ' + access_token }
+    });
+    const data = await res.json();
+    all.push(...data.items);
+    url = data.next; // full URL or null
+  }
+
+  // Render them all
+  all.forEach(pl => {
+    const li  = document.createElement('li');
+    li.dataset.id = pl.id;
+    const img = document.createElement('img');
+    img.src = pl.images[0]?.url;
+    li.appendChild(img);
+    li.appendChild(document.createTextNode(pl.name));
+    li.onclick = () => loadTracks(pl.id);
+    ul.appendChild(li);
+  });
     }
 
     async function loadTracks(id){
