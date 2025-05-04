@@ -312,7 +312,7 @@
           api('/me/player',{method:'PUT',body:JSON.stringify({device_ids:[device_id]})});
           status('🎧 Device Ready');
         });
-        player.addListener('player_state_changed',st=>{
+        player.addListener('player_state_changed', async st=>{
           if(!st) return;
           if(st.paused) player.resume();
           const t=st.track_window.current_track,
