@@ -2,74 +2,101 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Spotify Player + Search (PKCE Fixed)</title>
+  <title>Spotify Player + Dark Mode & Controls</title>
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <style>
-    body { font-family: sans-serif; max-width: 600px; margin: 2rem auto; }
-    button, input, select { margin: 0.5rem 0; padding: 0.5rem; font-size: 1rem; }
+    :root {
+      --bg: #fff; --fg: #000; --accent: #1DB954; --accent-dim: rgba(29,185,84,0.2);
+    }
+    body { background: var(--bg); color: var(--fg); font-family: sans-serif; max-width: 800px; margin: 1rem auto; padding: 1rem; transition: background .3s, color .3s; }
+    body.dark { --bg: #111; --fg: #eee; }
+    h1, h2 { margin-top: 1rem; }
+    button, select { margin: .5rem 0; padding: .5rem 1rem; font-size: 1rem; background: var(--accent-dim); border: 1px solid var(--accent); color: var(--fg); border-radius: 4px; cursor: pointer; }
+    button:disabled, select:disabled { opacity: .5; cursor: default; }
+    #controls, #nowPlaying, #playlistSection, #trackSection { border: 1px solid var(--accent-dim); padding: 1rem; margin: 1rem 0; border-radius: 6px; }
     ul { list-style: none; padding: 0; }
-    li { cursor: pointer; margin: 0.25rem 0; }
-    li:hover { text-decoration: underline; }
-    #status { font-weight: bold; margin: 1rem 0; }
+    li { padding: .5rem; border-bottom: 1px solid var(--accent-dim); cursor: pointer; }
+    li:hover { background: var(--accent-dim); }
+    li.playing { background: var(--accent); color: var(--bg); }
+    #nowPlaying { display: flex; align-items: center; }
+    #nowPlaying img { width: 80px; height: 80px; margin-right: 1rem; border-radius: 4px; }
+    #status { font-weight: bold; margin: .5rem 0; }
   </style>
 </head>
 <body>
-  <h1>Spotify Player + Search (PKCE Fixed)</h1>
-  <button id="login">Log in with Spotify</button>
+  <h1>Spotify Player</h1>
   <div id="status"></div>
-
-  <h2>Your Playlists</h2>
-  <ul id="playlists"></ul>
-  <button id="playPause" disabled>Play / Pause</button>
-
-  <h2>Search & Play</h2>
-  <input id="searchQuery" placeholder="Search tracks…" />
-  <button id="searchBtn" disabled>Search</button>
-  <ul id="searchResults"></ul>
+  <button id="login">Log in with Spotify</button>
+  <div id="controls">
+    <button id="prevBtn" disabled>⏮️ Prev</button>
+    <button id="playPauseBtn" disabled>▶️ Play/Pause</button>
+    <button id="nextBtn" disabled>⏭️ Next</button>
+    <button id="shuffleBtn" disabled>🔀 Shuffle</button>
+    <button id="repeatBtn" disabled>🔁 Repeat: Off</button>
+    <button id="darkModeToggle">🌙 Dark Mode</button>
+  </div>
+  <div id="nowPlaying">
+    <img id="trackArt" src="" alt="Album Art">
+    <div>
+      <div id="trackInfo">Not playing</div>
+    </div>
+  </div>
+  <div id="playlistSection">
+    <h2>Playlists</h2>
+    <ul id="playlists"></ul>
+  </div>
+  <div id="trackSection">
+    <h2>Tracks</h2>
+    <ul id="tracks"></ul>
+  </div>
 
   <script>
     // —— CONFIG —— 
-    const client_id    = 'b00e3fe2a9394a86a64048c96a3ff5f3';
-    const redirect_uri = 'https://pyromonkey007.github.io/Spotify/';
-    const scopes       = [
+    const client_id     = 'b00e3fe2a9394a86a64048c96a3ff5f3';
+    const redirect_uri  = 'https://pyromonkey007.github.io/Spotify/';
+    const scopes        = [
       'streaming',
       'user-read-private',
       'user-read-email',
       'user-read-playback-state',
       'user-modify-playback-state',
-      'playlist-read-private'
+      'playlist-read-private',
+      'playlist-read-collaborative'
     ].join(' ');
+    const STATE_KEY     = 'spotify_pkce_state';
+    const VERIFIER_KEY  = 'spotify_pkce_verifier';
 
-    const STATE_KEY    = 'spotify_pkce_state';
-    const VERIFIER_KEY = 'spotify_pkce_verifier';
-    let access_token, player;
+    let access_token, player, currentPlaylistId, playlistTracks = [];
 
-    // Util: random string
+    // Util functions
     function randStr(len) {
       const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
       let s = '', arr = new Uint8Array(len);
       crypto.getRandomValues(arr);
-      arr.forEach(i => s += chars[i % chars.length]);
+      arr.forEach(i=> s += chars[i % chars.length]);
       return s;
     }
-    // Util: base64-urlencode
-    function b64url(buffer) {
-      return btoa(String.fromCharCode(...new Uint8Array(buffer)))
+    function b64url(buf) {
+      return btoa(String.fromCharCode(...new Uint8Array(buf)))
         .replace(/=+$/,'').replace(/\+/g,'-').replace(/\//g,'_');
     }
-    // Util: sha256
     async function sha256(msg) {
-      const buf = new TextEncoder().encode(msg);
-      return crypto.subtle.digest('SHA-256', buf);
+      const enc = new TextEncoder().encode(msg);
+      return crypto.subtle.digest('SHA-256', enc);
+    }
+    function api(path, opts={}) {
+      opts.headers = {
+        ...(opts.headers||{}),
+        'Authorization': 'Bearer ' + access_token
+      };
+      return fetch('https://api.spotify.com/v1' + path, opts).then(r=>r.json());
     }
 
-    // 1) Redirect to Spotify with PKCE
+    // 1) PKCE auth
     async function redirectToAuth() {
-      const state = randStr(16);
-      const verifier = randStr(64);
+      const state = randStr(16), verifier = randStr(64);
       sessionStorage.setItem(STATE_KEY, state);
       sessionStorage.setItem(VERIFIER_KEY, verifier);
-
       const challenge = b64url(await sha256(verifier));
       const params = new URLSearchParams({
         response_type: 'code',
@@ -79,115 +106,107 @@
         code_challenge: challenge,
         show_dialog: 'true'
       });
-      window.location = 'https://accounts.spotify.com/authorize?' + params;
+      location = 'https://accounts.spotify.com/authorize?' + params;
     }
 
-    // 2) Handle Spotify redirect
+    // 2) Handle redirect
     async function handleRedirect() {
-      const qs = new URLSearchParams(window.location.search);
-      const code  = qs.get('code');
-      const state = qs.get('state');
+      const qs = new URLSearchParams(location.search);
+      const code = qs.get('code'), state = qs.get('state');
       if (!code) return;
-
-      const savedState = sessionStorage.getItem(STATE_KEY);
-      if (state !== savedState) {
-        document.getElementById('status').textContent = '❌ State mismatch — try again';
+      const saved = sessionStorage.getItem(STATE_KEY);
+      if (state !== saved) {
+        status('❌ State mismatch. Try again.');
         return;
       }
       sessionStorage.removeItem(STATE_KEY);
-
       const verifier = sessionStorage.getItem(VERIFIER_KEY);
       sessionStorage.removeItem(VERIFIER_KEY);
 
+      // Exchange code
       const body = new URLSearchParams({
         grant_type: 'authorization_code',
-        code, redirect_uri,
-        client_id, code_verifier: verifier
+        code, redirect_uri, client_id, code_verifier: verifier
       });
-      const tokenRes = await fetch('https://accounts.spotify.com/api/token', {
-        method: 'POST',
-        headers: { 'Content-Type':'application/x-www-form-urlencoded' },
+      const tok = await fetch('https://accounts.spotify.com/api/token',{
+        method:'POST',
+        headers:{'Content-Type':'application/x-www-form-urlencoded'},
         body
-      });
-      const tokenData = await tokenRes.json();
-      if (!tokenData.access_token) {
-        document.getElementById('status').textContent = '❌ Token exchange failed';
-        console.error(tokenData);
+      }).then(r=>r.json());
+      if (!tok.access_token) {
+        console.error(tok);
+        status('❌ Token exchange failed');
         return;
       }
-
-      access_token = tokenData.access_token;
-      history.replaceState(null, '', redirect_uri);
-      document.getElementById('status').textContent = '✅ Logged in';
-      bootstrapPlayer();
+      access_token = tok.access_token;
+      history.replaceState(null,'',redirect_uri);
+      status('✅ Logged in');
+      initApp();
     }
 
-    // 3) Initialize UI & Player
-    function bootstrapPlayer() {
-      document.getElementById('searchBtn').disabled  = false;
-      document.getElementById('playPause').disabled  = false;
-      fetchPlaylists();
+    // 3) Initialize UI & player
+    function initApp() {
+      ['prevBtn','playPauseBtn','nextBtn','shuffleBtn','repeatBtn'].forEach(id=>
+        document.getElementById(id).disabled = false
+      );
+      document.getElementById('darkModeToggle').onclick = () =>
+        document.body.classList.toggle('dark');
+
+      loadPlaylists();
       loadSDK();
-      document.getElementById('searchBtn').onclick = searchTracks;
-      document.getElementById('playPause').onclick = () => player.togglePlay();
+
+      document.getElementById('prevBtn').onclick = ()=>player.previousTrack();
+      document.getElementById('nextBtn').onclick = ()=>player.nextTrack();
+      document.getElementById('playPauseBtn').onclick = ()=>player.togglePlay();
+      document.getElementById('shuffleBtn').onclick = toggleShuffle;
+      document.getElementById('repeatBtn').onclick  = toggleRepeat;
     }
 
-    // Fetch & render playlists
-    async function fetchPlaylists() {
-      const res = await fetch('https://api.spotify.com/v1/me/playlists', {
-        headers: { 'Authorization':'Bearer '+access_token }
-      });
-      const data = await res.json();
+    function status(msg) {
+      document.getElementById('status').textContent = msg;
+    }
+
+    // 4) Fetch playlists (including collaborative)
+    async function loadPlaylists() {
+      let data = await api('/me/playlists?limit=50');
       const ul = document.getElementById('playlists');
       ul.innerHTML = '';
       data.items.forEach(pl => {
         const li = document.createElement('li');
         li.textContent = pl.name;
-        li.onclick      = () => playPlaylist(pl.id);
+        li.onclick = () => loadTracks(pl.id);
         ul.appendChild(li);
       });
     }
 
-    // Play a playlist
-    function playPlaylist(id) {
-      fetch('https://api.spotify.com/v1/me/player/play', {
-        method: 'PUT',
-        headers: {
-          'Authorization':'Bearer '+access_token,
-          'Content-Type':'application/json'
-        },
-        body: JSON.stringify({ context_uri: 'spotify:playlist:' + id })
-      });
-    }
-
-    // Search & play
-    async function searchTracks() {
-      const q = document.getElementById('searchQuery').value.trim();
-      if (!q) return alert('Enter search term');
-      const res = await fetch(
-        `https://api.spotify.com/v1/search?type=track&limit=5&q=${encodeURIComponent(q)}`, {
-          headers: { 'Authorization':'Bearer '+access_token }
-        }
-      );
-      const { tracks } = await res.json();
-      const ul = document.getElementById('searchResults');
+    // 5) Fetch tracks of a playlist
+    async function loadTracks(id) {
+      currentPlaylistId = id;
+      const data = await api(`/playlists/${id}/tracks?limit=100`);
+      playlistTracks = data.items.map(i=>i.track.uri);
+      const ul = document.getElementById('tracks');
       ul.innerHTML = '';
-      tracks.items.forEach(t => {
+      data.items.forEach((i, idx) => {
+        const t = i.track;
         const li = document.createElement('li');
         li.textContent = `${t.name} — ${t.artists.map(a=>a.name).join(', ')}`;
-        li.onclick = () => fetch('https://api.spotify.com/v1/me/player/play', {
-          method: 'PUT',
-          headers: {
-            'Authorization':'Bearer '+access_token,
-            'Content-Type':'application/json'
-          },
-          body: JSON.stringify({ uris: [ t.uri ] })
-        });
+        li.onclick = () => playTrackAt(idx);
         ul.appendChild(li);
       });
     }
 
-    // Load the Web Playback SDK
+    // Play track at position
+    function playTrackAt(index) {
+      api('/me/player/play',{
+        method:'PUT',
+        body: JSON.stringify({
+          context_uri: `spotify:playlist:${currentPlaylistId}`,
+          offset: { position: index }
+        })
+      });
+    }
+
+    // 6) Initialize Web Playback SDK
     function loadSDK() {
       if (!window.Spotify) {
         const s = document.createElement('script');
@@ -196,30 +215,49 @@
       }
       window.onSpotifyWebPlaybackSDKReady = () => {
         player = new Spotify.Player({
-          name: 'PKCE Player',
-          getOAuthToken: cb => cb(access_token),
+          name: 'Web Player',
+          getOAuthToken: cb => cb(access_token)
         });
-        player.connect().then(success => {
-          if (success) {
-            player.addListener('player_state_changed', ({ paused }) => {
-              if (paused) player.resume();
-            });
-            player.addListener('ready', ({ device_id }) => {
-              fetch('https://api.spotify.com/v1/me/player', {
-                method: 'PUT',
-                headers: {
-                  'Authorization':'Bearer '+access_token,
-                  'Content-Type':'application/json'
-                },
-                body: JSON.stringify({ device_ids: [ device_id ] })
-              });
-            });
-          }
+        player.addListener('ready', ({ device_id }) => {
+          status('Device ready');
+          // transfer playback
+          api('/me/player',{method:'PUT',body:JSON.stringify({device_ids:[device_id]})});
         });
+        player.addListener('player_state_changed', state => {
+          if (!state) return;
+          // auto-resume
+          if (state.paused) player.resume();
+          // update now playing
+          const t = state.track_window.current_track;
+          document.getElementById('trackArt').src = t.album.images[0]?.url;
+          document.getElementById('trackInfo').textContent =
+            `${t.name} — ${t.artists.map(a=>a.name).join(', ')}`;
+          // highlight current track
+          const lis = document.querySelectorAll('#tracks li');
+          lis.forEach((li,i)=> li.classList.toggle('playing', i === state.track_window.previous_tracks.length));
+        });
+        player.connect();
       };
     }
 
-    // Wire up login & redirect
+    // Toggle shuffle
+    async function toggleShuffle() {
+      // get current shuffle
+      const s = await api('/me/player');
+      const next = !s.shuffle_state;
+      await api(`/me/player/shuffle?state=${next}`,{method:'PUT'});
+      document.getElementById('shuffleBtn').textContent = next ? '🔀 Shuffle On' : '🔀 Shuffle Off';
+    }
+
+    // Toggle repeat
+    let rptStates = ['off','context','track'], rptIdx = 0;
+    async function toggleRepeat() {
+      rptIdx = (rptIdx + 1) % 3;
+      await api(`/me/player/repeat?state=${rptStates[rptIdx]}`,{method:'PUT'});
+      document.getElementById('repeatBtn').textContent = `🔁 Repeat: ${rptStates[rptIdx]}`;
+    }
+
+    // Wire up
     document.getElementById('login').onclick = redirectToAuth;
     window.addEventListener('load', handleRedirect);
   </script>
