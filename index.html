@@ -2,19 +2,19 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Spotify Player (Implicit Grant)</title>
+  <title>Spotify Player (PKCE, SessionStorage)</title>
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <style>
-    body { font-family:sans-serif; max-width:600px; margin:2rem auto; }
-    button, input, select { margin:0.5rem 0; padding:0.5rem; font-size:1rem; }
-    ul { list-style:none; padding:0; }
-    li { cursor:pointer; margin:0.25rem 0; }
-    li:hover { text-decoration:underline; }
-    #status { font-weight:bold; margin:1rem 0; }
+    body { font-family: sans-serif; max-width: 600px; margin: 2rem auto; }
+    button, input, select { margin: .5rem 0; padding: .5rem; font-size: 1rem; }
+    ul { list-style: none; padding: 0; }
+    li { cursor: pointer; margin: .25rem 0; }
+    li:hover { text-decoration: underline; }
+    #status { font-weight: bold; margin: 1rem 0; }
   </style>
 </head>
 <body>
-  <h1>Spotify Player</h1>
+  <h1>Spotify Player + Search</h1>
   <button id="login">Log in with Spotify</button>
   <div id="status"></div>
 
@@ -22,66 +22,136 @@
   <ul id="playlists"></ul>
   <button id="playPause" disabled>Play / Pause</button>
 
-  <h2>Search & Add</h2>
+  <h2>Search &amp; Play</h2>
   <input id="searchQuery" placeholder="Search tracks…" />
   <button id="searchBtn" disabled>Search</button>
   <ul id="searchResults"></ul>
 
   <script>
-    // —— CONFIG ——  
-    const client_id    = 'b00e3fe2a9394a86a64048c96a3ff5f3';  
-    const redirect_uri = window.location.origin + window.location.pathname;  
+    // —— CONFIG —— 
+    const client_id    = 'b00e3fe2a9394a86a64048c96a3ff5f3';
+    const redirect_uri = window.location.origin + window.location.pathname;  // must match Dashboard
     const scopes       = [
       'streaming',
       'user-read-private',
       'user-read-email',
       'user-read-playback-state',
       'user-modify-playback-state',
-      'playlist-read-private',
-      'playlist-modify-public',
-      'playlist-modify-private'
+      'playlist-read-private'
     ].join(' ');
 
-    let access_token = null;
+    const stateKey        = 'spotify_auth_state';
+    const codeVerifierKey = 'spotify_code_verifier';
+    let access_token;
 
-    // On load: clear any stale PKCE data and parse the token from the hash
-    window.addEventListener('load', () => {
-      localStorage.removeItem('spotify_auth_state');
-      localStorage.removeItem('spotify_code_verifier');
+    // --- Clear any old PKCE items (avoid stale state) ---
+    sessionStorage.removeItem(stateKey);
+    sessionStorage.removeItem(codeVerifierKey);
 
-      if (window.location.hash) {
-        const hash = window.location.hash
-          .substring(1)
-          .split('&')
-          .reduce((acc, part) => {
-            const [k,v] = part.split('=');
-            acc[k] = decodeURIComponent(v);
-            return acc;
-          }, {});
-        access_token = hash.access_token;
-        history.replaceState(null, '', redirect_uri);
+    // Utility: random string
+    function generateRandomString(length) {
+      const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+      let result = '';
+      const array = new Uint8Array(length);
+      window.crypto.getRandomValues(array);
+      for (let i=0; i<length; i++) result += chars[array[i] % chars.length];
+      return result;
+    }
+    // Utility: base64-urlencode
+    function base64UrlEncode(buffer) {
+      return btoa(String.fromCharCode(...new Uint8Array(buffer)))
+        .replace(/=+$/,'').replace(/\+/g,'-').replace(/\//g,'_');
+    }
+    // Utility: SHA256
+    async function sha256(plain) {
+      const encoder = new TextEncoder();
+      const data = encoder.encode(plain);
+      return window.crypto.subtle.digest('SHA-256', data);
+    }
 
-        if (access_token) {
-          document.getElementById('status').textContent = '✅ Logged in';
-          document.getElementById('searchBtn').disabled = false;
-          loadSDKAndPlayer();
-          fetchPlaylists();
-        }
+    // 1) Start PKCE flow
+    async function redirectToAuth() {
+      const state = generateRandomString(16);
+      sessionStorage.setItem(stateKey, state);
+
+      const codeVerifier = generateRandomString(64);
+      sessionStorage.setItem(codeVerifierKey, codeVerifier);
+
+      const hashed = await sha256(codeVerifier);
+      const codeChallenge = base64UrlEncode(hashed);
+
+      const params = new URLSearchParams({
+        response_type:    'code',
+        client_id:        client_id,
+        scope:            scopes,
+        redirect_uri:     redirect_uri,
+        state:            state,
+        code_challenge_method: 'S256',
+        code_challenge:   codeChallenge,
+        show_dialog:      'true'
+      });
+      window.location = `https://accounts.spotify.com/authorize?${params}`;
+    }
+
+    // 2) Handle redirect back
+    async function handleRedirect() {
+      const qs = new URLSearchParams(window.location.search);
+      const code  = qs.get('code');
+      const state = qs.get('state');
+      if (!code) return;  // not a redirect
+
+      console.log('Returned state:', state);
+      console.log('Stored state:  ', sessionStorage.getItem(stateKey));
+
+      // Validate state
+      const savedState = sessionStorage.getItem(stateKey);
+      sessionStorage.removeItem(stateKey);
+      if (state !== savedState) {
+        document.getElementById('status').textContent = '❌ State mismatch — please try again';
+        return;
       }
-    });
 
-    // Kick off the Implicit Grant flow
-    document.getElementById('login').onclick = () => {
-      const url = 'https://accounts.spotify.com/authorize'
-        + '?response_type=token'
-        + '&client_id='     + encodeURIComponent(client_id)
-        + '&scope='         + encodeURIComponent(scopes)
-        + '&redirect_uri='  + encodeURIComponent(redirect_uri)
-        + '&show_dialog=true';
-      window.location = url;
-    };
+      // Exchange code for token
+      const codeVerifier = sessionStorage.getItem(codeVerifierKey);
+      sessionStorage.removeItem(codeVerifierKey);
 
-    // Fetch and render your playlists
+      const tokenRes = await fetch('https://accounts.spotify.com/api/token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({
+          grant_type:    'authorization_code',
+          code:          code,
+          redirect_uri:  redirect_uri,
+          client_id:     client_id,
+          code_verifier: codeVerifier
+        })
+      });
+      const tokenData = await tokenRes.json();
+      if (!tokenData.access_token) {
+        console.error(tokenData);
+        document.getElementById('status').textContent = '❌ Token exchange failed';
+        return;
+      }
+
+      access_token = tokenData.access_token;
+      history.replaceState(null, '', redirect_uri);
+      document.getElementById('status').textContent = '✅ Logged in';
+
+      initPlayerAndUI();
+    }
+
+    // 3) Init UI & Player
+    function initPlayerAndUI() {
+      document.getElementById('searchBtn').disabled = false;
+      document.getElementById('playPause').disabled = false;
+      fetchPlaylists();
+      loadSDKAndPlayer();
+
+      document.getElementById('searchBtn').onclick = searchTracks;
+      document.getElementById('playPause').onclick = () => player.togglePlay();
+    }
+
+    // Fetch & render playlists
     async function fetchPlaylists() {
       const res = await fetch('https://api.spotify.com/v1/me/playlists', {
         headers: { 'Authorization': 'Bearer ' + access_token }
@@ -97,7 +167,7 @@
       });
     }
 
-    // Send the Play request to Spotify
+    // Play selected playlist
     function playPlaylist(playlistId) {
       fetch('https://api.spotify.com/v1/me/player/play', {
         method: 'PUT',
@@ -107,10 +177,39 @@
         },
         body: JSON.stringify({ context_uri: 'spotify:playlist:' + playlistId })
       });
-      document.getElementById('playPause').disabled = false;
     }
 
-    // Load the Web Playback SDK and enable Play/Pause
+    // Search & play tracks directly
+    async function searchTracks() {
+      const q = document.getElementById('searchQuery').value.trim();
+      if (!q) { alert('Enter a search term'); return; }
+      const res = await fetch(
+        `https://api.spotify.com/v1/search?type=track&limit=5&q=${encodeURIComponent(q)}`, {
+          headers: { 'Authorization': 'Bearer ' + access_token }
+        }
+      );
+      const { tracks } = await res.json();
+      const ul = document.getElementById('searchResults');
+      ul.innerHTML = '';
+      tracks.items.forEach(t => {
+        const li = document.createElement('li');
+        li.textContent = `${t.name} — ${t.artists.map(a=>a.name).join(', ')}`;
+        li.onclick = () => {
+          fetch('https://api.spotify.com/v1/me/player/play', {
+            method: 'PUT',
+            headers: {
+              'Authorization': 'Bearer ' + access_token,
+              'Content-Type':  'application/json'
+            },
+            body: JSON.stringify({ uris: [ t.uri ] })
+          });
+        };
+        ul.appendChild(li);
+      });
+    }
+
+    // Load Web Playback SDK
+    let player;
     function loadSDKAndPlayer() {
       if (!window.Spotify) {
         const s = document.createElement('script');
@@ -118,17 +217,15 @@
         document.head.appendChild(s);
       }
       window.onSpotifyWebPlaybackSDKReady = () => {
-        const player = new Spotify.Player({
-          name: 'Browser Player',
+        player = new Spotify.Player({
+          name: 'Web Player',
           getOAuthToken: cb => cb(access_token),
         });
         player.connect().then(success => {
           if (success) {
-            // Auto‑resume on any pause
             player.addListener('player_state_changed', ({ paused }) => {
               if (paused) player.resume();
             });
-            // Transfer playback to this player
             player.addListener('ready', ({ device_id }) => {
               fetch('https://api.spotify.com/v1/me/player', {
                 method: 'PUT',
@@ -141,41 +238,12 @@
             });
           }
         });
-        document.getElementById('playPause').onclick = () => {
-          player.togglePlay();
-        };
       };
     }
 
-    // Wire up search & add-to-playlist
-    document.getElementById('searchBtn').onclick = async () => {
-      const q = document.getElementById('searchQuery').value.trim();
-      if (!q) return alert('Enter a search term');
-      const res = await fetch(
-        `https://api.spotify.com/v1/search?type=track&limit=10&q=${encodeURIComponent(q)}`, {
-          headers: { 'Authorization': 'Bearer ' + access_token }
-        }
-      );
-      const { tracks } = await res.json();
-      const ul = document.getElementById('searchResults');
-      ul.innerHTML = '';
-      tracks.items.forEach(t => {
-        const li = document.createElement('li');
-        li.textContent = `${t.name} — ${t.artists.map(a=>a.name).join(', ')}`;
-        li.onclick = () => {
-          // Immediately play the selected track
-          fetch('https://api.spotify.com/v1/me/player/play', {
-            method: 'PUT',
-            headers: {
-              'Authorization': 'Bearer ' + access_token,
-              'Content-Type':  'application/json'
-            },
-            body: JSON.stringify({ uris: [ t.uri ] })
-          });
-        };
-        ul.appendChild(li);
-      });
-    };
+    // Bootstrap on load
+    window.addEventListener('load', handleRedirect);
+    document.getElementById('login').onclick = redirectToAuth;
   </script>
 </body>
 </html>
