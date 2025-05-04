@@ -2,262 +2,297 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Spotify Player + Dark Mode & Controls</title>
+  <title>🚀 Cyberpunk Spotify Player</title>
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <style>
     :root {
-      --bg: #fff; --fg: #000; --accent: #1DB954; --accent-dim: rgba(29,185,84,0.2);
+      --bg: #111;
+      --fg: #eee;
+      --accent: #ff00cc;
+      --accent-dim: rgba(255,0,204,0.2);
     }
-    body { background: var(--bg); color: var(--fg); font-family: sans-serif; max-width: 800px; margin: 1rem auto; padding: 1rem; transition: background .3s, color .3s; }
-    body.dark { --bg: #111; --fg: #eee; }
-    h1, h2 { margin-top: 1rem; }
-    button, select { margin: .5rem 0; padding: .5rem 1rem; font-size: 1rem; background: var(--accent-dim); border: 1px solid var(--accent); color: var(--fg); border-radius: 4px; cursor: pointer; }
-    button:disabled, select:disabled { opacity: .5; cursor: default; }
-    #controls, #nowPlaying, #playlistSection, #trackSection { border: 1px solid var(--accent-dim); padding: 1rem; margin: 1rem 0; border-radius: 6px; }
-    ul { list-style: none; padding: 0; }
-    li { padding: .5rem; border-bottom: 1px solid var(--accent-dim); cursor: pointer; }
-    li:hover { background: var(--accent-dim); }
-    li.playing { background: var(--accent); color: var(--bg); }
-    #nowPlaying { display: flex; align-items: center; }
-    #nowPlaying img { width: 80px; height: 80px; margin-right: 1rem; border-radius: 4px; }
-    #status { font-weight: bold; margin: .5rem 0; }
+    * { box-sizing: border-box; margin:0; padding:0; }
+    body {
+      font-family: 'Orbitron', sans-serif;
+      background: var(--bg);
+      color: var(--fg);
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      --bg-image: none;
+    }
+    /* dynamic blurred background */
+    body::before {
+      content: '';
+      position: fixed; top:0; left:0; width:100%; height:100%;
+      background: var(--bg-image) center/cover no-repeat;
+      filter: blur(20px) brightness(0.3);
+      z-index: -1;
+    }
+    h1 { text-align:center; margin:1rem 0; text-shadow:0 0 8px var(--accent); }
+    #status { text-align:center; margin-bottom:1rem; }
+    #login { align-self:center; margin-bottom:1rem; padding:.75rem 1.5rem; background:var(--accent); color:var(--bg); border:none; border-radius:4px; cursor:pointer; }
+    #controls {
+      display: flex; justify-content: center; flex-wrap: wrap; gap:1rem;
+      background: rgba(0,0,0,0.5); padding:1rem; margin-bottom:1rem;
+    }
+    #controls button {
+      background: var(--accent-dim); border:1px solid var(--accent); color:var(--fg);
+      padding:.5rem 1rem; border-radius:4px; cursor:pointer; transition:.2s;
+    }
+    #controls button.active { background: var(--accent); color:var(--bg); box-shadow:0 0 8px var(--accent); }
+    #controls button:hover { transform: scale(1.05); }
+    #nowPlaying {
+      display:flex; align-items:center; gap:1rem;
+      padding:1rem; background:rgba(0,0,0,0.5);
+      margin:0 1rem 1rem; border-radius:6px;
+    }
+    #nowPlaying img { width:80px; height:80px; border-radius:4px; }
+    #nowInfo { display:flex; flex-direction:column; }
+    #nowInfo div { margin:.25rem 0; }
+    .container {
+      display: grid; grid-template-columns: 1fr 2fr; gap:1rem; flex:1; overflow:hidden;
+      padding: 0 1rem 1rem;
+    }
+    #playlistSection, #trackSection {
+      background: rgba(0,0,0,0.5); padding:1rem; border-radius:6px; overflow-y:auto;
+    }
+    #playlistSection ul, #trackSection ul { list-style:none; }
+    #playlistSection li, #trackSection li {
+      display:flex; align-items:center; gap:.5rem;
+      padding:.5rem; border-bottom:1px solid var(--accent-dim);
+      cursor:pointer; transition:.2s;
+    }
+    #playlistSection img { width:40px; height:40px; border-radius:4px; }
+    #playlistSection li.selected, #trackSection li.playing {
+      background: var(--accent); color: var(--bg); box-shadow:0 0 8px var(--accent);
+    }
+    #playlistSection li:hover, #trackSection li:hover { background: var(--accent-dim); }
   </style>
 </head>
 <body>
-  <h1>Spotify Player</h1>
-  <div id="status"></div>
+  <h1>🚀 Cyberpunk Spotify Player</h1>
+  <div id="status">Not logged in</div>
   <button id="login">Log in with Spotify</button>
+
   <div id="controls">
     <button id="prevBtn" disabled>⏮️ Prev</button>
     <button id="playPauseBtn" disabled>▶️ Play/Pause</button>
     <button id="nextBtn" disabled>⏭️ Next</button>
     <button id="shuffleBtn" disabled>🔀 Shuffle</button>
-    <button id="repeatBtn" disabled>🔁 Repeat: Off</button>
+    <button id="repeatBtn" disabled>🔁 Repeat</button>
     <button id="darkModeToggle">🌙 Dark Mode</button>
   </div>
+
   <div id="nowPlaying">
     <img id="trackArt" src="" alt="Album Art">
-    <div>
+    <div id="nowInfo">
       <div id="trackInfo">Not playing</div>
+      <div id="nextTrack"></div>
     </div>
   </div>
-  <div id="playlistSection">
-    <h2>Playlists</h2>
-    <ul id="playlists"></ul>
-  </div>
-  <div id="trackSection">
-    <h2>Tracks</h2>
-    <ul id="tracks"></ul>
+
+  <div class="container">
+    <div id="playlistSection">
+      <h2>Playlists</h2>
+      <ul id="playlists"></ul>
+    </div>
+    <div id="trackSection">
+      <h2>Tracks</h2>
+      <ul id="tracks"></ul>
+    </div>
   </div>
 
   <script>
-    // —— CONFIG —— 
-    const client_id     = 'b00e3fe2a9394a86a64048c96a3ff5f3';
-    const redirect_uri  = 'https://pyromonkey007.github.io/Spotify/';
-    const scopes        = [
-      'streaming',
-      'user-read-private',
-      'user-read-email',
-      'user-read-playback-state',
-      'user-modify-playback-state',
-      'playlist-read-private',
-      'playlist-read-collaborative'
+    // CONFIG
+    const client_id    = 'b00e3fe2a9394a86a64048c96a3ff5f3';
+    const redirect_uri = 'https://pyromonkey007.github.io/Spotify/';
+    const scopes       = [
+      'streaming','user-read-private','user-read-email',
+      'user-read-playback-state','user-modify-playback-state',
+      'playlist-read-private','playlist-read-collaborative'
     ].join(' ');
-    const STATE_KEY     = 'spotify_pkce_state';
-    const VERIFIER_KEY  = 'spotify_pkce_verifier';
+    const STATE_KEY    = 'spotify_pkce_state';
+    const VERIFIER_KEY = 'spotify_pkce_verifier';
 
     let access_token, player, currentPlaylistId, playlistTracks = [];
 
-    // Util functions
+    // UTILITIES
     function randStr(len) {
-      const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-      let s = '', arr = new Uint8Array(len);
-      crypto.getRandomValues(arr);
-      arr.forEach(i=> s += chars[i % chars.length]);
-      return s;
+      const chars='ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+      let s='', arr=new Uint8Array(len); crypto.getRandomValues(arr);
+      arr.forEach(i=>s+=chars[i%chars.length]); return s;
     }
     function b64url(buf) {
       return btoa(String.fromCharCode(...new Uint8Array(buf)))
         .replace(/=+$/,'').replace(/\+/g,'-').replace(/\//g,'_');
     }
     async function sha256(msg) {
-      const enc = new TextEncoder().encode(msg);
+      const enc=new TextEncoder().encode(msg);
       return crypto.subtle.digest('SHA-256', enc);
     }
     function api(path, opts={}) {
-      opts.headers = {
-        ...(opts.headers||{}),
-        'Authorization': 'Bearer ' + access_token
-      };
-      return fetch('https://api.spotify.com/v1' + path, opts).then(r=>r.json());
+      opts.headers = { ...(opts.headers||{}), 'Authorization':'Bearer '+access_token };
+      return fetch('https://api.spotify.com/v1'+path, opts).then(r=>r.json());
     }
+    function status(msg) { document.getElementById('status').textContent = msg; }
 
-    // 1) PKCE auth
+    // PKCE AUTH
     async function redirectToAuth() {
-      const state = randStr(16), verifier = randStr(64);
-      sessionStorage.setItem(STATE_KEY, state);
-      sessionStorage.setItem(VERIFIER_KEY, verifier);
-      const challenge = b64url(await sha256(verifier));
-      const params = new URLSearchParams({
-        response_type: 'code',
-        client_id, scope: scopes,
-        redirect_uri, state,
-        code_challenge_method: 'S256',
-        code_challenge: challenge,
-        show_dialog: 'true'
+      const state=randStr(16), verifier=randStr(64);
+      sessionStorage.setItem(STATE_KEY,state);
+      sessionStorage.setItem(VERIFIER_KEY,verifier);
+      const challenge=b64url(await sha256(verifier));
+      const params=new URLSearchParams({
+        response_type:'code',client_id,redirect_uri,scope:scopes,
+        state,code_challenge_method:'S256',code_challenge:challenge,show_dialog:'true'
       });
-      location = 'https://accounts.spotify.com/authorize?' + params;
+      location='https://accounts.spotify.com/authorize?'+params;
     }
-
-    // 2) Handle redirect
     async function handleRedirect() {
-      const qs = new URLSearchParams(location.search);
-      const code = qs.get('code'), state = qs.get('state');
-      if (!code) return;
-      const saved = sessionStorage.getItem(STATE_KEY);
-      if (state !== saved) {
-        status('❌ State mismatch. Try again.');
-        return;
-      }
+      const qs=new URLSearchParams(location.search);
+      const code=qs.get('code'), state=qs.get('state');
+      if(!code) return;
+      const saved=sessionStorage.getItem(STATE_KEY);
+      if(state!==saved) { status('❌ State mismatch — retry'); return; }
       sessionStorage.removeItem(STATE_KEY);
-      const verifier = sessionStorage.getItem(VERIFIER_KEY);
+      const verifier=sessionStorage.getItem(VERIFIER_KEY);
       sessionStorage.removeItem(VERIFIER_KEY);
-
-      // Exchange code
-      const body = new URLSearchParams({
-        grant_type: 'authorization_code',
-        code, redirect_uri, client_id, code_verifier: verifier
+      const body=new URLSearchParams({
+        grant_type:'authorization_code',code,redirect_uri,client_id,code_verifier:verifier
       });
-      const tok = await fetch('https://accounts.spotify.com/api/token',{
-        method:'POST',
-        headers:{'Content-Type':'application/x-www-form-urlencoded'},
-        body
+      const tok=await fetch('https://accounts.spotify.com/api/token',{
+        method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body
       }).then(r=>r.json());
-      if (!tok.access_token) {
-        console.error(tok);
-        status('❌ Token exchange failed');
-        return;
-      }
-      access_token = tok.access_token;
+      if(!tok.access_token){ console.error(tok); status('❌ Token failed'); return; }
+      access_token=tok.access_token;
       history.replaceState(null,'',redirect_uri);
       status('✅ Logged in');
       initApp();
     }
 
-    // 3) Initialize UI & player
+    // INIT UI & PLAYER
     function initApp() {
       ['prevBtn','playPauseBtn','nextBtn','shuffleBtn','repeatBtn'].forEach(id=>
-        document.getElementById(id).disabled = false
+        document.getElementById(id).disabled=false
       );
-      document.getElementById('darkModeToggle').onclick = () =>
+      document.getElementById('darkModeToggle').onclick=()=>{
         document.body.classList.toggle('dark');
-
-      loadPlaylists();
-      loadSDK();
-
+      };
       document.getElementById('prevBtn').onclick = ()=>player.previousTrack();
       document.getElementById('nextBtn').onclick = ()=>player.nextTrack();
       document.getElementById('playPauseBtn').onclick = ()=>player.togglePlay();
-      document.getElementById('shuffleBtn').onclick = toggleShuffle;
-      document.getElementById('repeatBtn').onclick  = toggleRepeat;
+      document.getElementById('shuffleBtn').onclick   = toggleShuffle;
+      document.getElementById('repeatBtn').onclick    = toggleRepeat;
+
+      loadPlaylists();
+      loadSDK();
     }
 
-    function status(msg) {
-      document.getElementById('status').textContent = msg;
-    }
-
-    // 4) Fetch playlists (including collaborative)
+    // PLAYLISTS & TRACKS
     async function loadPlaylists() {
-      let data = await api('/me/playlists?limit=50');
-      const ul = document.getElementById('playlists');
-      ul.innerHTML = '';
-      data.items.forEach(pl => {
-        const li = document.createElement('li');
-        li.textContent = pl.name;
-        li.onclick = () => loadTracks(pl.id);
+      const data=await api('/me/playlists?limit=50');
+      const ul=document.getElementById('playlists');
+      ul.innerHTML='';
+      data.items.forEach(pl=>{
+        const li=document.createElement('li');
+        li.dataset.id=pl.id;
+        // cover
+        const img=document.createElement('img');
+        img.src=pl.images[0]?.url; li.appendChild(img);
+        li.appendChild(document.createTextNode(pl.name));
+        li.onclick=()=>loadTracks(pl.id);
         ul.appendChild(li);
       });
     }
-
-    // 5) Fetch tracks of a playlist
     async function loadTracks(id) {
-      currentPlaylistId = id;
-      const data = await api(`/playlists/${id}/tracks?limit=100`);
-      playlistTracks = data.items.map(i=>i.track.uri);
-      const ul = document.getElementById('tracks');
-      ul.innerHTML = '';
-      data.items.forEach((i, idx) => {
-        const t = i.track;
-        const li = document.createElement('li');
-        li.textContent = `${t.name} — ${t.artists.map(a=>a.name).join(', ')}`;
-        li.onclick = () => playTrackAt(idx);
+      currentPlaylistId=id;
+      clearSelected();
+      document.querySelector(`#playlists li[data-id="${id}"]`).classList.add('selected');
+      const data=await api(`/playlists/${id}/tracks?limit=100`);
+      const ul=document.getElementById('tracks');
+      ul.innerHTML=''; playlistTracks=data.items.map(i=>i.track.uri);
+      data.items.forEach((i,idx)=>{
+        const t=i.track, li=document.createElement('li');
+        li.dataset.idx=idx;
+        li.textContent=`${t.name} — ${t.artists.map(a=>a.name).join(', ')}`;
+        li.onclick=()=>playTrackAt(idx);
         ul.appendChild(li);
       });
     }
-
-    // Play track at position
-    function playTrackAt(index) {
-      api('/me/player/play',{
-        method:'PUT',
-        body: JSON.stringify({
-          context_uri: `spotify:playlist:${currentPlaylistId}`,
-          offset: { position: index }
-        })
-      });
+    function clearSelected(){
+      document.querySelectorAll('#playlists li').forEach(li=>li.classList.remove('selected'));
+    }
+    function playTrackAt(idx) {
+      api('/me/player/play',{method:'PUT',body:JSON.stringify({
+        context_uri:`spotify:playlist:${currentPlaylistId}`,offset:{position:idx}
+      })});
     }
 
-    // 6) Initialize Web Playback SDK
+    // WEB PLAYBACK SDK
     function loadSDK() {
-      if (!window.Spotify) {
-        const s = document.createElement('script');
-        s.src = 'https://sdk.scdn.co/spotify-player.js';
+      if(!window.Spotify){
+        const s=document.createElement('script');
+        s.src='https://sdk.scdn.co/spotify-player.js';
         document.head.appendChild(s);
       }
-      window.onSpotifyWebPlaybackSDKReady = () => {
-        player = new Spotify.Player({
-          name: 'Web Player',
-          getOAuthToken: cb => cb(access_token)
+      window.onSpotifyWebPlaybackSDKReady=()=>{
+        player=new Spotify.Player({
+          name:'Cyberpunk Player',
+          getOAuthToken:cb=>cb(access_token)
         });
-        player.addListener('ready', ({ device_id }) => {
-          status('Device ready');
-          // transfer playback
+        player.addListener('ready',({device_id})=>{
+          status('🎧 Device Ready');
           api('/me/player',{method:'PUT',body:JSON.stringify({device_ids:[device_id]})});
+          updateShuffleRepeat();
         });
-        player.addListener('player_state_changed', state => {
-          if (!state) return;
-          // auto-resume
-          if (state.paused) player.resume();
-          // update now playing
-          const t = state.track_window.current_track;
-          document.getElementById('trackArt').src = t.album.images[0]?.url;
-          document.getElementById('trackInfo').textContent =
+        player.addListener('player_state_changed',state=>{
+          if(!state) return;
+          if(state.paused) player.resume();
+          const t=state.track_window.current_track,
+                next=state.track_window.next_tracks[0];
+          // Now playing
+          document.getElementById('trackArt').src=t.album.images[0]?.url;
+          document.body.style.setProperty('--bg-image',`url(${t.album.images[0]?.url})`);
+          document.getElementById('trackInfo').textContent=
             `${t.name} — ${t.artists.map(a=>a.name).join(', ')}`;
-          // highlight current track
-          const lis = document.querySelectorAll('#tracks li');
-          lis.forEach((li,i)=> li.classList.toggle('playing', i === state.track_window.previous_tracks.length));
+          document.getElementById('nextTrack').textContent=
+            next ? 'Next: '+ next.name+' — '+ next.artists.map(a=>a.name).join(', ') : '';
+          // highlight
+          document.querySelectorAll('#tracks li').forEach(li=>li.classList.remove('playing'));
+          const idx=state.track_window.previous_tracks.length;
+          const cur=document.querySelector(`#tracks li[data-idx="${idx}"]`);
+          if(cur) cur.classList.add('playing');
+          updateShuffleRepeat();
         });
         player.connect();
       };
     }
 
-    // Toggle shuffle
-    async function toggleShuffle() {
-      // get current shuffle
-      const s = await api('/me/player');
-      const next = !s.shuffle_state;
-      await api(`/me/player/shuffle?state=${next}`,{method:'PUT'});
-      document.getElementById('shuffleBtn').textContent = next ? '🔀 Shuffle On' : '🔀 Shuffle Off';
+    // SHUFFLE & REPEAT UI
+    async function updateShuffleRepeat(){
+      const s=await api('/me/player');
+      const sh=s.shuffle_state, rp=s.repeat_state;
+      const sb=document.getElementById('shuffleBtn'),
+            rb=document.getElementById('repeatBtn');
+      sb.classList.toggle('active',sh);
+      sb.textContent = sh ? '🔀 Shuffle: On' : '🔀 Shuffle: Off';
+      rb.classList.toggle('active',rp!=='off');
+      rb.textContent = `🔁 Repeat: ${rp}`;
+    }
+    async function toggleShuffle(){
+      const s=await api('/me/player');
+      await api(`/me/player/shuffle?state=${!s.shuffle_state}`,{method:'PUT'});
+      updateShuffleRepeat();
+    }
+    let rpt=['off','context','track'], ri=0;
+    async function toggleRepeat(){
+      ri=(ri+1)%3;
+      await api(`/me/player/repeat?state=${rpt[ri]}`,{method:'PUT'});
+      updateShuffleRepeat();
     }
 
-    // Toggle repeat
-    let rptStates = ['off','context','track'], rptIdx = 0;
-    async function toggleRepeat() {
-      rptIdx = (rptIdx + 1) % 3;
-      await api(`/me/player/repeat?state=${rptStates[rptIdx]}`,{method:'PUT'});
-      document.getElementById('repeatBtn').textContent = `🔁 Repeat: ${rptStates[rptIdx]}`;
-    }
-
-    // Wire up
+    // WIRE UP
     document.getElementById('login').onclick = redirectToAuth;
     window.addEventListener('load', handleRedirect);
   </script>
