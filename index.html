@@ -2,76 +2,105 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>🚀 Cyberpunk Spotify Player</title>
+  <title>Daddy’s Spotify Player 🚀</title>
   <meta name="viewport" content="width=device-width,initial-scale=1">
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
   <style>
     :root {
-      --bg: #111;
-      --fg: #eee;
-      --accent: #ff00cc;
-      --accent-dim: rgba(255,0,204,0.2);
+      --bg: #0a0a0a;
+      --fg: #e0e0e0;
+      --accent: #ff007f;
+      --accent-dim: rgba(255,0,127,0.2);
+      --neon: drop-shadow(0 0 8px var(--accent));
     }
     * { box-sizing: border-box; margin:0; padding:0; }
     body {
       font-family: 'Orbitron', sans-serif;
       background: var(--bg);
       color: var(--fg);
-      display: flex;
-      flex-direction: column;
+      display: flex; flex-direction: column;
       height: 100vh;
-      --bg-image: none;
+      overflow: hidden;
     }
-    /* dynamic blurred background */
-    body::before {
-      content: '';
-      position: fixed; top:0; left:0; width:100%; height:100%;
-      background: var(--bg-image) center/cover no-repeat;
-      filter: blur(20px) brightness(0.3);
-      z-index: -1;
+    h1 { text-align: center; margin: 1rem 0; text-shadow: var(--neon); }
+    #status { text-align: center; margin-bottom: .5rem; }
+    #login {
+      align-self: center;
+      background: var(--accent);
+      color: var(--bg);
+      border: none; padding: .75rem 1.5rem;
+      border-radius: 4px; cursor: pointer;
+      text-transform: uppercase; font-weight: bold;
+      box-shadow: var(--neon);
     }
-    h1 { text-align:center; margin:1rem 0; text-shadow:0 0 8px var(--accent); }
-    #status { text-align:center; margin-bottom:1rem; }
-    #login { align-self:center; margin-bottom:1rem; padding:.75rem 1.5rem; background:var(--accent); color:var(--bg); border:none; border-radius:4px; cursor:pointer; }
     #controls {
-      display: flex; justify-content: center; flex-wrap: wrap; gap:1rem;
-      background: rgba(0,0,0,0.5); padding:1rem; margin-bottom:1rem;
+      display: flex; justify-content: center; flex-wrap: wrap; gap: .5rem;
+      padding: .75rem; background: rgba(0,0,0,0.5);
+      box-shadow: var(--neon); margin: .5rem 1rem;
+      border-radius: 6px;
     }
     #controls button {
-      background: var(--accent-dim); border:1px solid var(--accent); color:var(--fg);
-      padding:.5rem 1rem; border-radius:4px; cursor:pointer; transition:.2s;
+      background: var(--accent-dim); border:1px solid var(--accent);
+      color: var(--fg); padding: .5rem 1rem;
+      border-radius:4px; cursor: pointer;
+      transition: transform .2s, background .2s;
     }
-    #controls button.active { background: var(--accent); color:var(--bg); box-shadow:0 0 8px var(--accent); }
-    #controls button:hover { transform: scale(1.05); }
+    #controls button.active {
+      background: var(--accent); color: var(--bg);
+      box-shadow: var(--neon);
+    }
+    #controls button:hover { transform: scale(1.1); }
     #nowPlaying {
-      display:flex; align-items:center; gap:1rem;
-      padding:1rem; background:rgba(0,0,0,0.5);
-      margin:0 1rem 1rem; border-radius:6px;
+      display: flex; align-items: center; gap: 1rem;
+      padding: 1rem; background: rgba(0,0,0,0.6);
+      margin: 0 1rem .5rem; border-radius:6px;
+      box-shadow: var(--neon);
     }
-    #nowPlaying img { width:80px; height:80px; border-radius:4px; }
-    #nowInfo { display:flex; flex-direction:column; }
-    #nowInfo div { margin:.25rem 0; }
+    #nowPlaying img {
+      width: 80px; height: 80px; border-radius:4px;
+      box-shadow: var(--neon);
+    }
+    #nowInfo { display: flex; flex-direction: column; }
+    #nowInfo div { margin: .25rem 0; }
+
     .container {
-      display: grid; grid-template-columns: 1fr 2fr; gap:1rem; flex:1; overflow:hidden;
-      padding: 0 1rem 1rem;
+      display: grid; grid-template-columns: 1fr 2fr; flex:1;
+      overflow: hidden; gap:1rem; padding: 0 1rem 1rem;
     }
     #playlistSection, #trackSection {
-      background: rgba(0,0,0,0.5); padding:1rem; border-radius:6px; overflow-y:auto;
+      background: rgba(0,0,0,0.5); border-radius:6px;
+      overflow-y: auto; padding:1rem; box-shadow: var(--neon);
     }
     #playlistSection ul, #trackSection ul { list-style:none; }
     #playlistSection li, #trackSection li {
-      display:flex; align-items:center; gap:.5rem;
-      padding:.5rem; border-bottom:1px solid var(--accent-dim);
-      cursor:pointer; transition:.2s;
+      display: flex; align-items: center; gap: .5rem;
+      padding: .5rem; border-bottom: 1px solid var(--accent-dim);
+      cursor: pointer; opacity: 0;
+      animation: fadeIn .4s forwards;
     }
-    #playlistSection img { width:40px; height:40px; border-radius:4px; }
     #playlistSection li.selected, #trackSection li.playing {
-      background: var(--accent); color: var(--bg); box-shadow:0 0 8px var(--accent);
+      background: var(--accent); color: var(--bg);
+      box-shadow: var(--neon);
     }
-    #playlistSection li:hover, #trackSection li:hover { background: var(--accent-dim); }
+    #playlistSection img {
+      width: 40px; height: 40px; border-radius:4px;
+    }
+    #trackSection header {
+      display: flex; justify-content: space-between;
+      align-items: center; margin-bottom: .5rem;
+    }
+    #trackSection select {
+      background: var(--accent-dim); border:1px solid var(--accent);
+      padding: .25rem; color: var(--fg);
+      border-radius:4px; cursor: pointer;
+    }
+    @keyframes fadeIn {
+      to { opacity: 1; }
+    }
   </style>
 </head>
 <body>
-  <h1>🚀 Cyberpunk Spotify Player</h1>
+  <h1>Daddy’s Spotify Player 🚀</h1>
   <div id="status">Not logged in</div>
   <button id="login">Log in with Spotify</button>
 
@@ -81,7 +110,6 @@
     <button id="nextBtn" disabled>⏭️ Next</button>
     <button id="shuffleBtn" disabled>🔀 Shuffle</button>
     <button id="repeatBtn" disabled>🔁 Repeat</button>
-    <button id="darkModeToggle">🌙 Dark Mode</button>
   </div>
 
   <div id="nowPlaying">
@@ -98,13 +126,19 @@
       <ul id="playlists"></ul>
     </div>
     <div id="trackSection">
-      <h2>Tracks</h2>
+      <header>
+        <h2>Tracks</h2>
+        <select id="sortSelect">
+          <option value="custom">Custom Order</option>
+          <option value="newest">Date Added ↓</option>
+          <option value="oldest">Date Added ↑</option>
+        </select>
+      </header>
       <ul id="tracks"></ul>
     </div>
   </div>
 
   <script>
-    // CONFIG
     const client_id    = 'b00e3fe2a9394a86a64048c96a3ff5f3';
     const redirect_uri = 'https://pyromonkey007.github.io/Spotify/';
     const scopes       = [
@@ -115,21 +149,20 @@
     const STATE_KEY    = 'spotify_pkce_state';
     const VERIFIER_KEY = 'spotify_pkce_verifier';
 
-    let access_token, player, currentPlaylistId, playlistTracks = [];
+    let access_token, player, currentPlaylistId;
+    let playlistItems = []; // { track, added_at }
 
-    // UTILITIES
     function randStr(len) {
-      const chars='ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-      let s='', arr=new Uint8Array(len); crypto.getRandomValues(arr);
-      arr.forEach(i=>s+=chars[i%chars.length]); return s;
+      const c='ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+      let s='', a=new Uint8Array(len); crypto.getRandomValues(a);
+      a.forEach(i=>s+=c[i%c.length]); return s;
     }
-    function b64url(buf) {
-      return btoa(String.fromCharCode(...new Uint8Array(buf)))
+    function b64url(b) {
+      return btoa(String.fromCharCode(...new Uint8Array(b)))
         .replace(/=+$/,'').replace(/\+/g,'-').replace(/\//g,'_');
     }
-    async function sha256(msg) {
-      const enc=new TextEncoder().encode(msg);
-      return crypto.subtle.digest('SHA-256', enc);
+    async function sha256(m) {
+      return crypto.subtle.digest('SHA-256', new TextEncoder().encode(m));
     }
     function api(path, opts={}) {
       opts.headers = { ...(opts.headers||{}), 'Authorization':'Bearer '+access_token };
@@ -137,67 +170,72 @@
     }
     function status(msg) { document.getElementById('status').textContent = msg; }
 
-    // PKCE AUTH
+    // PKCE Auth
     async function redirectToAuth() {
       const state=randStr(16), verifier=randStr(64);
       sessionStorage.setItem(STATE_KEY,state);
       sessionStorage.setItem(VERIFIER_KEY,verifier);
       const challenge=b64url(await sha256(verifier));
-      const params=new URLSearchParams({
+      const p=new URLSearchParams({
         response_type:'code',client_id,redirect_uri,scope:scopes,
         state,code_challenge_method:'S256',code_challenge:challenge,show_dialog:'true'
       });
-      location='https://accounts.spotify.com/authorize?'+params;
+      location='https://accounts.spotify.com/authorize?'+p;
     }
-    async function handleRedirect() {
+    async function handleRedirect(){
       const qs=new URLSearchParams(location.search);
       const code=qs.get('code'), state=qs.get('state');
       if(!code) return;
-      const saved=sessionStorage.getItem(STATE_KEY);
-      if(state!==saved) { status('❌ State mismatch — retry'); return; }
+      if(state!==sessionStorage.getItem(STATE_KEY)){
+        status('❌ State mismatch—retry');
+        return;
+      }
       sessionStorage.removeItem(STATE_KEY);
-      const verifier=sessionStorage.getItem(VERIFIER_KEY);
+      const ver=sessionStorage.getItem(VERIFIER_KEY);
       sessionStorage.removeItem(VERIFIER_KEY);
       const body=new URLSearchParams({
-        grant_type:'authorization_code',code,redirect_uri,client_id,code_verifier:verifier
+        grant_type:'authorization_code',code,redirect_uri,
+        client_id,code_verifier:ver
       });
       const tok=await fetch('https://accounts.spotify.com/api/token',{
         method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body
       }).then(r=>r.json());
-      if(!tok.access_token){ console.error(tok); status('❌ Token failed'); return; }
+      if(!tok.access_token){status('❌ Token failed');console.error(tok);return;}
       access_token=tok.access_token;
       history.replaceState(null,'',redirect_uri);
       status('✅ Logged in');
       initApp();
     }
 
-    // INIT UI & PLAYER
-    function initApp() {
+    function initApp(){
       ['prevBtn','playPauseBtn','nextBtn','shuffleBtn','repeatBtn'].forEach(id=>
         document.getElementById(id).disabled=false
       );
-      document.getElementById('darkModeToggle').onclick=()=>{
-        document.body.classList.toggle('dark');
-      };
+      ['prevBtn','nextBtn','playPauseBtn','shuffleBtn','repeatBtn'].forEach(id=>
+        document.getElementById(id).classList.remove('active')
+      );
       document.getElementById('prevBtn').onclick = ()=>player.previousTrack();
       document.getElementById('nextBtn').onclick = ()=>player.nextTrack();
       document.getElementById('playPauseBtn').onclick = ()=>player.togglePlay();
       document.getElementById('shuffleBtn').onclick   = toggleShuffle;
       document.getElementById('repeatBtn').onclick    = toggleRepeat;
-
+      document.getElementById('sortSelect').onchange  = renderTracks;
       loadPlaylists();
       loadSDK();
     }
 
-    // PLAYLISTS & TRACKS
-    async function loadPlaylists() {
-      const data=await api('/me/playlists?limit=50');
-      const ul=document.getElementById('playlists');
-      ul.innerHTML='';
-      data.items.forEach(pl=>{
+    // Playlists (paginate)
+    async function loadPlaylists(){
+      let items=[], url='/me/playlists?limit=50';
+      while(url){
+        const data=await api(url.replace('https://api.spotify.com/v1',''));
+        items.push(...data.items);
+        url = data.next;
+      }
+      const ul=document.getElementById('playlists'); ul.innerHTML='';
+      items.forEach(pl=>{
         const li=document.createElement('li');
         li.dataset.id=pl.id;
-        // cover
         const img=document.createElement('img');
         img.src=pl.images[0]?.url; li.appendChild(img);
         li.appendChild(document.createTextNode(pl.name));
@@ -205,32 +243,38 @@
         ul.appendChild(li);
       });
     }
-    async function loadTracks(id) {
+
+    // Tracks + sorting
+    async function loadTracks(id){
       currentPlaylistId=id;
-      clearSelected();
-      document.querySelector(`#playlists li[data-id="${id}"]`).classList.add('selected');
+      document.querySelectorAll('#playlists li').forEach(li=>li.classList.toggle(
+        'selected', li.dataset.id===id
+      ));
       const data=await api(`/playlists/${id}/tracks?limit=100`);
-      const ul=document.getElementById('tracks');
-      ul.innerHTML=''; playlistTracks=data.items.map(i=>i.track.uri);
-      data.items.forEach((i,idx)=>{
-        const t=i.track, li=document.createElement('li');
-        li.dataset.idx=idx;
-        li.textContent=`${t.name} — ${t.artists.map(a=>a.name).join(', ')}`;
-        li.onclick=()=>playTrackAt(idx);
+      playlistItems = data.items.map(i=>({ track:i.track, added_at:i.added_at }));
+      renderTracks();
+    }
+    function renderTracks(){
+      const mode=document.getElementById('sortSelect').value;
+      let arr=[...playlistItems];
+      if(mode==='newest') arr.sort((a,b)=>new Date(b.added_at)-new Date(a.added_at));
+      else if(mode==='oldest') arr.sort((a,b)=>new Date(a.added_at)-new Date(b.added_at));
+      const ul=document.getElementById('tracks'); ul.innerHTML='';
+      arr.forEach((obj,i)=>{
+        const li=document.createElement('li');
+        li.dataset.uri=obj.track.uri;
+        li.textContent=`${obj.track.name} — ${obj.track.artists.map(a=>a.name).join(', ')}`;
+        li.style.animationDelay = `${i*50}ms`;
+        li.onclick = ()=>playUri(obj.track.uri);
         ul.appendChild(li);
       });
     }
-    function clearSelected(){
-      document.querySelectorAll('#playlists li').forEach(li=>li.classList.remove('selected'));
-    }
-    function playTrackAt(idx) {
-      api('/me/player/play',{method:'PUT',body:JSON.stringify({
-        context_uri:`spotify:playlist:${currentPlaylistId}`,offset:{position:idx}
-      })});
+    function playUri(uri){
+      api('/me/player/play',{method:'PUT',body:JSON.stringify({ uris:[uri], context_uri:`spotify:playlist:${currentPlaylistId}` })});
     }
 
-    // WEB PLAYBACK SDK
-    function loadSDK() {
+    // Web Playback SDK
+    function loadSDK(){
       if(!window.Spotify){
         const s=document.createElement('script');
         s.src='https://sdk.scdn.co/spotify-player.js';
@@ -238,61 +282,52 @@
       }
       window.onSpotifyWebPlaybackSDKReady=()=>{
         player=new Spotify.Player({
-          name:'Cyberpunk Player',
+          name:'Daddy’s Player',
           getOAuthToken:cb=>cb(access_token)
         });
         player.addListener('ready',({device_id})=>{
-          status('🎧 Device Ready');
           api('/me/player',{method:'PUT',body:JSON.stringify({device_ids:[device_id]})});
-          updateShuffleRepeat();
+          status('🎧 Device Ready');
         });
-        player.addListener('player_state_changed',state=>{
-          if(!state) return;
-          if(state.paused) player.resume();
-          const t=state.track_window.current_track,
-                next=state.track_window.next_tracks[0];
-          // Now playing
+        player.addListener('player_state_changed',st=>{
+          if(!st) return;
+          if(st.paused) player.resume();
+          const t=st.track_window.current_track,
+                next=st.track_window.next_tracks[0];
           document.getElementById('trackArt').src=t.album.images[0]?.url;
           document.body.style.setProperty('--bg-image',`url(${t.album.images[0]?.url})`);
           document.getElementById('trackInfo').textContent=
             `${t.name} — ${t.artists.map(a=>a.name).join(', ')}`;
           document.getElementById('nextTrack').textContent=
-            next ? 'Next: '+ next.name+' — '+ next.artists.map(a=>a.name).join(', ') : '';
-          // highlight
-          document.querySelectorAll('#tracks li').forEach(li=>li.classList.remove('playing'));
-          const idx=state.track_window.previous_tracks.length;
-          const cur=document.querySelector(`#tracks li[data-idx="${idx}"]`);
-          if(cur) cur.classList.add('playing');
+            next ? 'Next ➜ '+next.name : '';
+          // highlight current
+          document.querySelectorAll('#tracks li').forEach(li=>
+            li.classList.toggle('playing', li.dataset.uri===t.uri)
+          );
           updateShuffleRepeat();
         });
         player.connect();
       };
     }
 
-    // SHUFFLE & REPEAT UI
+    // Shuffle/Repeat UI
     async function updateShuffleRepeat(){
-      const s=await api('/me/player');
-      const sh=s.shuffle_state, rp=s.repeat_state;
-      const sb=document.getElementById('shuffleBtn'),
-            rb=document.getElementById('repeatBtn');
-      sb.classList.toggle('active',sh);
-      sb.textContent = sh ? '🔀 Shuffle: On' : '🔀 Shuffle: Off';
-      rb.classList.toggle('active',rp!=='off');
-      rb.textContent = `🔁 Repeat: ${rp}`;
+      const st=await api('/me/player');
+      document.getElementById('shuffleBtn').classList.toggle('active',st.shuffle_state);
+      document.getElementById('repeatBtn').classList.toggle('active',st.repeat_state!=='off');
     }
     async function toggleShuffle(){
-      const s=await api('/me/player');
-      await api(`/me/player/shuffle?state=${!s.shuffle_state}`,{method:'PUT'});
+      const st=await api('/me/player');
+      await api(`/me/player/shuffle?state=${!st.shuffle_state}`,{method:'PUT'});
       updateShuffleRepeat();
     }
-    let rpt=['off','context','track'], ri=0;
+    const reps=['off','context','track']; let ri=0;
     async function toggleRepeat(){
       ri=(ri+1)%3;
-      await api(`/me/player/repeat?state=${rpt[ri]}`,{method:'PUT'});
+      await api(`/me/player/repeat?state=${reps[ri]}`,{method:'PUT'});
       updateShuffleRepeat();
     }
 
-    // WIRE UP
     document.getElementById('login').onclick = redirectToAuth;
     window.addEventListener('load', handleRedirect);
   </script>
