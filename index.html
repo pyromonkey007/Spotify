@@ -329,6 +329,22 @@
           name:'Daddy’s Player',
           getOAuthToken: cb => cb(access_token)
         });
+
+        +      // ─── Error listeners ─────────────────────────────────────────
+      player.addListener('initialization_error', ({ message }) => {
+        console.warn('Spotify SDK init error:', message);
+      });
+      player.addListener('authentication_error', ({ message }) => {
+        console.warn('Spotify SDK auth error:', message);
+      });
+      player.addListener('account_error', ({ message }) => {
+        console.warn('Spotify SDK account error:', message);
+      });
+      player.addListener('playback_error', ({ message }) => {
+        console.warn('Spotify SDK playback error (ignored):', message);
+      });
+      // ─────────────────────────────────────────────────────────────
+  
         player.addListener('ready', ({device_id}) => {
           api('/me/player',{method:'PUT',body:JSON.stringify({device_ids:[device_id]})});
           status('🎧 Device Ready');
@@ -349,7 +365,21 @@
           );
           await updateShuffleRepeat();
         });
-        player.connect();
+        +      player.connect().catch(err => {
+        // in the very rare case connect itself fails
+        console.error('Player connect failed:', err);
+      });
+
+      // ─── Wrap your control buttons so errors never escape ───
+      document.getElementById('prevBtn').onclick = () =>
+        player.previousTrack().catch(e => console.warn('PrevTrack error ignored:', e));
+
+      document.getElementById('playPauseBtn').onclick = () =>
+        player.togglePlay().catch(e => console.warn('TogglePlay error ignored:', e));
+
+      document.getElementById('nextBtn').onclick = () =>
+        player.nextTrack().catch(e => console.warn('NextTrack error ignored:', e));
+
       };
     }
 
