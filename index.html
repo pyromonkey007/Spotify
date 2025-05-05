@@ -18,10 +18,9 @@
       background: var(--bg);
       color: var(--fg);
       display: flex; flex-direction: column;
-      height: 100vh;
-      overflow: hidden;
+      height: 100vh; overflow: hidden;
     }
-    /* dynamic blurred background + neon gradient fallback */
+    /* blurred background + neon fallback */
     body::before {
       content: '';
       position: fixed; top:0; left:0; width:100%; height:100%;
@@ -35,11 +34,11 @@
     }
     @keyframes flicker {
       0%,18%,22%,25%,53%,57%,100% { opacity:1; }
-      20%,24%,55% { opacity:0.5; }
+      20%,24%,55%             { opacity:0.5; }
     }
     h1 {
-      text-align:center;
-      margin:1rem 0;
+      text-align: center;
+      margin: 1rem 0;
       text-shadow: 0 0 8px var(--accent);
       animation: flicker 3s infinite;
     }
@@ -72,6 +71,7 @@
       box-shadow: 0 0 12px var(--accent);
     }
     #controls button:hover { transform: scale(1.1); }
+
     #nowPlaying {
       display:flex; align-items:center; gap:1rem;
       padding:1rem; background:rgba(0,0,0,0.6);
@@ -96,10 +96,11 @@
       padding:1rem; box-shadow: 0 0 12px var(--accent);
     }
     #playlistSection ul, #trackSection ul { list-style:none; }
+
     @keyframes fadeIn { to { opacity:1; } }
     @keyframes glow {
       0%,100% { box-shadow:0 0 12px var(--accent); }
-      50% { box-shadow:0 0 20px var(--accent); }
+      50%     { box-shadow:0 0 20px var(--accent); }
     }
     #playlistSection li, #trackSection li {
       display:flex; align-items:center; gap:.5rem;
@@ -107,7 +108,8 @@
       cursor:pointer; opacity:0;
       animation: fadeIn .3s forwards;
     }
-    #playlistSection li.selected, #trackSection li.playing {
+    #playlistSection li.selected,
+    #trackSection li.playing {
       background: var(--accent);
       color: var(--fg) !important;
       animation: glow 1.5s infinite;
@@ -216,7 +218,8 @@
       const code=qs.get('code'), state=qs.get('state');
       if(!code) return;
       if(state!==sessionStorage.getItem(STATE_KEY)){
-        status('❌ State mismatch—retry'); return;
+        status('❌ State mismatch—retry');
+        return;
       }
       sessionStorage.removeItem(STATE_KEY);
       const ver=sessionStorage.getItem(VERIFIER_KEY);
@@ -234,25 +237,25 @@
       initApp();
     }
 
-    function initApp(){
+    async function initApp(){
       ['prevBtn','playPauseBtn','nextBtn','shuffleBtn','repeatBtn']
         .forEach(id=>document.getElementById(id).disabled=false);
-      document.getElementById('prevBtn').onclick = ()=>player.previousTrack();
-      document.getElementById('nextBtn').onclick = ()=>player.nextTrack();
+      document.getElementById('prevBtn').onclick      = ()=>player.previousTrack();
+      document.getElementById('nextBtn').onclick      = ()=>player.nextTrack();
       document.getElementById('playPauseBtn').onclick = ()=>player.togglePlay();
       document.getElementById('shuffleBtn').onclick   = toggleShuffle;
       document.getElementById('repeatBtn').onclick    = toggleRepeat;
       document.getElementById('sortSelect').onchange  = renderTracks;
-      // Clear and then load library + featured
-      const ul = document.getElementById('playlists');
-      ul.innerHTML = '';
-      loadPlaylists().then(loadFeaturedPlaylists).catch(console.error);
+
+      // clear & load in order
+      document.getElementById('playlists').innerHTML = '';
+      await loadPlaylists();
+      await loadFeaturedPlaylists();
       loadSDK();
     }
 
     async function loadPlaylists() {
       const ul = document.getElementById('playlists');
-      // Fetch library playlists pages
       let nextUrl = 'https://api.spotify.com/v1/me/playlists?limit=50';
       const all = [];
       while (nextUrl) {
@@ -263,9 +266,8 @@
         all.push(...data.items);
         nextUrl = data.next;
       }
-      // Render library
       all.forEach(pl => {
-        const li = document.createElement('li');
+        const li  = document.createElement('li');
         li.dataset.id = pl.id;
         const img = document.createElement('img');
         img.src = pl.images[0]?.url || '';
@@ -285,7 +287,7 @@
       sep.style.margin = '0.5rem 0';
       ul.appendChild(sep);
       data.playlists.items.forEach(pl => {
-        const li = document.createElement('li');
+        const li  = document.createElement('li');
         li.dataset.id = pl.id;
         const img = document.createElement('img');
         img.src = pl.images[0]?.url || '';
