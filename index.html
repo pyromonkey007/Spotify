@@ -7,125 +7,105 @@
   <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
   <style>
     :root {
-      --bg: #0a0a0a;
-      --fg: #e0e0e0;
-      --accent: #ff007f;
-      --accent-dim: rgba(255,0,127,0.2);
+      --bg: #0a0a0a; --fg: #e0e0e0;
+      --accent: #ff007f; --accent-dim: rgba(255,0,127,0.2);
     }
-    * { box-sizing: border-box; margin:0; padding:0; }
+    * { box-sizing:border-box; margin:0; padding:0; }
     body {
-      font-family: 'Orbitron', sans-serif;
-      background: var(--bg);
-      color: var(--fg);
-      display: flex; flex-direction: column;
-      height: 100vh; overflow: hidden;
+      font-family:'Orbitron',sans-serif;
+      background:var(--bg); color:var(--fg);
+      display:flex; flex-direction:column; height:100vh; overflow:hidden;
     }
     /* blurred background + neon fallback */
     body::before {
-      content: '';
-      position: fixed; top:0; left:0; width:100%; height:100%;
-      background-image:
-        var(--bg-image),
-        radial-gradient(circle at top left, var(--accent), #000);
-      background-size: cover;
-      filter: blur(30px) brightness(0.3);
-      z-index: -1;
-      transition: background-image 1s ease-in-out;
+      content:''; position:fixed; top:0; left:0; width:100%; height:100%;
+      background-image: var(--bg-image), radial-gradient(circle at top left, var(--accent), #000);
+      background-size:cover; filter:blur(30px) brightness(0.3);
+      z-index:-1; transition:background-image 1s ease-in-out;
     }
     @keyframes flicker {
-      0%,18%,22%,25%,53%,57%,100% { opacity:1; }
-      20%,24%,55%             { opacity:0.5; }
+      0%,18%,22%,25%,53%,57%,100%{opacity:1}
+      20%,24%,55%{opacity:0.5}
     }
     h1 {
-      text-align: center;
-      margin: 1rem 0;
-      text-shadow: 0 0 8px var(--accent);
-      animation: flicker 3s infinite;
+      text-align:center; margin:1rem 0;
+      text-shadow:0 0 8px var(--accent);
+      animation:flicker 3s infinite;
     }
-    #status { text-align:center; margin-bottom:.5rem; }
-    #login {
-      align-self:center;
-      background: var(--accent);
-      color: var(--bg);
-      border:none; padding:.75rem 1.5rem;
-      border-radius:4px; cursor: pointer;
-      text-transform: uppercase; font-weight: bold;
-      box-shadow: 0 0 12px var(--accent);
+    #status{text-align:center;margin-bottom:.5rem;}
+    #login{
+      align-self:center; background:var(--accent); color:var(--bg);
+      border:none; padding:.75rem 1.5rem; border-radius:4px;
+      cursor:pointer; text-transform:uppercase; font-weight:bold;
+      box-shadow:0 0 12px var(--accent);
     }
-    #controls {
+    #controls{
       display:flex; justify-content:center; flex-wrap:wrap; gap:.5rem;
       padding:.75rem; background:rgba(0,0,0,0.5);
       margin:.5rem 1rem; border-radius:6px;
-      box-shadow: 0 0 12px var(--accent);
+      box-shadow:0 0 12px var(--accent);
     }
-    #controls button {
-      background: var(--accent-dim);
-      border:1px solid var(--accent);
-      color: var(--fg);
-      padding:.5rem 1rem; border-radius:4px; cursor:pointer;
-      transition: transform .2s, background .2s;
+    #controls button{
+      background:var(--accent-dim); border:1px solid var(--accent);
+      color:var(--fg); padding:.5rem 1rem; border-radius:4px;
+      cursor:pointer; transition:transform .2s,background .2s;
     }
-    #controls button.active {
-      background: var(--accent);
-      color: var(--fg);
-      box-shadow: 0 0 12px var(--accent);
+    #controls button.active{
+      background:var(--accent); color:var(--fg);
+      box-shadow:0 0 12px var(--accent);
     }
-    #controls button:hover { transform: scale(1.1); }
-
-    #nowPlaying {
+    #controls button:hover{transform:scale(1.1);}
+    #nowPlaying{
       display:flex; align-items:center; gap:1rem;
       padding:1rem; background:rgba(0,0,0,0.6);
       margin:0 1rem .5rem; border-radius:6px;
-      box-shadow: 0 0 12px var(--accent);
+      box-shadow:0 0 12px var(--accent);
     }
-    #nowPlaying img {
+    #nowPlaying img{
       width:80px; height:80px; border-radius:4px;
-      box-shadow: 0 0 12px var(--accent);
+      box-shadow:0 0 12px var(--accent);
     }
-    #nowInfo { display:flex; flex-direction:column; }
-    #nowInfo div { margin:.25rem 0; }
-
-    .container {
+    #nowInfo{display:flex;flex-direction:column;}
+    #nowInfo div{margin:.25rem 0;}
+    .container{
       display:grid; grid-template-columns:1fr 2fr;
       flex:1; overflow:hidden; gap:1rem;
       padding:0 1rem 1rem;
     }
-    #playlistSection, #trackSection {
-      background:rgba(0,0,0,0.5);
-      border-radius:6px; overflow-y:auto;
-      padding:1rem; box-shadow: 0 0 12px var(--accent);
+    #playlistSection,#trackSection{
+      background:rgba(0,0,0,0.5); border-radius:6px;
+      overflow-y:auto; padding:1rem;
+      box-shadow:0 0 12px var(--accent);
     }
-    #playlistSection ul, #trackSection ul { list-style:none; }
-
-    @keyframes fadeIn { to { opacity:1; } }
-    @keyframes glow {
-      0%,100% { box-shadow:0 0 12px var(--accent); }
-      50%     { box-shadow:0 0 20px var(--accent); }
+    #playlistSection ul,#trackSection ul{list-style:none;}
+    @keyframes fadeIn{to{opacity:1}}
+    @keyframes glow{
+      0%,100%{box-shadow:0 0 12px var(--accent)}
+      50%{box-shadow:0 0 20px var(--accent)}
     }
-    #playlistSection li, #trackSection li {
-      display:flex; align-items:center; gap:.5rem;
-      padding:.5rem; border-bottom:1px solid var(--accent-dim);
-      cursor:pointer; opacity:0;
-      animation: fadeIn .3s forwards;
+    #playlistSection li,#trackSection li{
+      display:flex;align-items:center;gap:.5rem;
+      padding:.5rem;border-bottom:1px solid var(--accent-dim);
+      cursor:pointer;opacity:0;
+      animation:fadeIn .3s forwards;
     }
     #playlistSection li.selected,
     #trackSection li.playing {
-      background: var(--accent);
-      color: var(--fg) !important;
-      animation: glow 1.5s infinite;
+      background:var(--accent)!important;
+      color: var(--fg)!important;
+      animation:glow 1.5s infinite;
     }
-    #playlistSection img {
-      width:40px; height:40px; border-radius:4px;
+    #playlistSection img{
+      width:40px;height:40px;border-radius:4px;
     }
-    #trackSection header {
-      display:flex; justify-content:space-between;
-      align-items:center; margin-bottom:.5rem;
+    #trackSection header{
+      display:flex;justify-content:space-between;
+      align-items:center;margin-bottom:.5rem;
     }
-    #trackSection select {
-      background: var(--accent-dim);
-      border:1px solid var(--accent);
-      padding:.25rem; color: var(--fg);
-      border-radius:4px; cursor:pointer;
+    #trackSection select{
+      background:var(--accent-dim);border:1px solid var(--accent);
+      padding:.25rem;color:var(--fg);
+      border-radius:4px;cursor:pointer;
     }
   </style>
 </head>
@@ -182,10 +162,10 @@
     let access_token, player, currentPlaylistId, playlistItems = [];
 
     function randStr(len) {
-      const c='ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-      let s='', a=new Uint8Array(len);
+      const c = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+      let s = '', a = new Uint8Array(len);
       crypto.getRandomValues(a);
-      a.forEach(i=>s+=c[i%c.length]);
+      a.forEach(i=>s+=c[i% c.length]);
       return s;
     }
     function b64url(b) {
@@ -202,44 +182,49 @@
     function status(msg) { document.getElementById('status').textContent = msg; }
 
     async function redirectToAuth() {
-      const state=randStr(16), verifier=randStr(64);
-      sessionStorage.setItem(STATE_KEY,state);
-      sessionStorage.setItem(VERIFIER_KEY,verifier);
-      const challenge=b64url(await sha256(verifier));
-      const p=new URLSearchParams({
-        response_type:'code',client_id,redirect_uri,scope:scopes,
-        state,code_challenge_method:'S256',code_challenge:challenge,show_dialog:'true'
+      const state = randStr(16), verifier = randStr(64);
+      sessionStorage.setItem(STATE_KEY, state);
+      sessionStorage.setItem(VERIFIER_KEY, verifier);
+      const challenge = b64url(await sha256(verifier));
+      const params = new URLSearchParams({
+        response_type:'code', client_id, redirect_uri, scope:scopes,
+        state, code_challenge_method:'S256', code_challenge:challenge, show_dialog:'true'
       });
-      location='https://accounts.spotify.com/authorize?'+p;
+      window.location = 'https://accounts.spotify.com/authorize?' + params;
     }
 
-    async function handleRedirect(){
-      const qs=new URLSearchParams(location.search);
-      const code=qs.get('code'), state=qs.get('state');
-      if(!code) return;
-      if(state!==sessionStorage.getItem(STATE_KEY)){
+    async function handleRedirect() {
+      const qs = new URLSearchParams(window.location.search);
+      const code = qs.get('code'), state = qs.get('state');
+      if (!code) return;
+      if (state !== sessionStorage.getItem(STATE_KEY)) {
         status('❌ State mismatch—retry');
         return;
       }
       sessionStorage.removeItem(STATE_KEY);
-      const ver=sessionStorage.getItem(VERIFIER_KEY);
+      const verifier = sessionStorage.getItem(VERIFIER_KEY);
       sessionStorage.removeItem(VERIFIER_KEY);
-      const body=new URLSearchParams({
-        grant_type:'authorization_code',code,redirect_uri,client_id,code_verifier:ver
+
+      const body = new URLSearchParams({
+        grant_type:'authorization_code', code, redirect_uri,
+        client_id, code_verifier:verifier
       });
-      const tok=await fetch('https://accounts.spotify.com/api/token',{
-        method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body
+      const tok = await fetch('https://accounts.spotify.com/api/token',{
+        method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body
       }).then(r=>r.json());
-      if(!tok.access_token){ status('❌ Token failed'); console.error(tok); return; }
-      access_token=tok.access_token;
+      if (!tok.access_token) {
+        status('❌ Token failed'); console.error(tok); return;
+      }
+      access_token = tok.access_token;
       history.replaceState(null,'',redirect_uri);
       status('✅ Logged in');
-      initApp();
+      await initApp();
     }
 
-    async function initApp(){
+    async function initApp() {
       ['prevBtn','playPauseBtn','nextBtn','shuffleBtn','repeatBtn']
         .forEach(id=>document.getElementById(id).disabled=false);
+
       document.getElementById('prevBtn').onclick      = ()=>player.previousTrack();
       document.getElementById('nextBtn').onclick      = ()=>player.nextTrack();
       document.getElementById('playPauseBtn').onclick = ()=>player.togglePlay();
@@ -247,10 +232,10 @@
       document.getElementById('repeatBtn').onclick    = toggleRepeat;
       document.getElementById('sortSelect').onchange  = renderTracks;
 
-      // clear & load in order
+      // clear once, then load your library + Made for You
       document.getElementById('playlists').innerHTML = '';
       await loadPlaylists();
-      await loadFeaturedPlaylists();
+      try { await loadFeaturedPlaylists(); } catch(e) { console.warn(e); }
       loadSDK();
     }
 
@@ -260,14 +245,14 @@
       const all = [];
       while (nextUrl) {
         const res  = await fetch(nextUrl, {
-          headers: { 'Authorization': 'Bearer ' + access_token }
+          headers: { 'Authorization':'Bearer '+access_token }
         });
         const data = await res.json();
         all.push(...data.items);
         nextUrl = data.next;
       }
       all.forEach(pl => {
-        const li  = document.createElement('li');
+        const li = document.createElement('li');
         li.dataset.id = pl.id;
         const img = document.createElement('img');
         img.src = pl.images[0]?.url || '';
@@ -279,7 +264,8 @@
     }
 
     async function loadFeaturedPlaylists() {
-      const data = await api('/browse/featured-playlists?limit=20');
+      // correct endpoint with country param
+      const data = await api('/browse/featured-playlists?limit=20&country=US');
       const ul   = document.getElementById('playlists');
       const sep  = document.createElement('li');
       sep.textContent = '— Made for You —';
@@ -287,7 +273,7 @@
       sep.style.margin = '0.5rem 0';
       ul.appendChild(sep);
       data.playlists.items.forEach(pl => {
-        const li  = document.createElement('li');
+        const li = document.createElement('li');
         li.dataset.id = pl.id;
         const img = document.createElement('img');
         img.src = pl.images[0]?.url || '';
@@ -298,21 +284,21 @@
       });
     }
 
-    async function loadTracks(id){
+    async function loadTracks(id) {
       currentPlaylistId = id;
-      document.querySelectorAll('#playlists li').forEach(li=>
-        li.classList.toggle('selected', li.dataset.id===id)
+      document.querySelectorAll('#playlists li').forEach(li =>
+        li.classList.toggle('selected', li.dataset.id === id)
       );
       const data = await api(`/playlists/${id}/tracks?limit=100`);
-      playlistItems = data.items.map(i=>({ track:i.track, added_at:i.added_at }));
+      playlistItems = data.items.map(i => ({ track:i.track, added_at:i.added_at }));
       renderTracks();
     }
 
-    function renderTracks(){
+    function renderTracks() {
       const mode = document.getElementById('sortSelect').value;
       let arr = [...playlistItems];
-      if(mode==='newest') arr.sort((a,b)=>new Date(b.added_at)-new Date(a.added_at));
-      if(mode==='oldest') arr.sort((a,b)=>new Date(a.added_at)-new Date(b.added_at));
+      if (mode==='newest') arr.sort((a,b)=>new Date(b.added_at)-new Date(a.added_at));
+      if (mode==='oldest') arr.sort((a,b)=>new Date(a.added_at)-new Date(b.added_at));
       const ul = document.getElementById('tracks');
       ul.innerHTML = '';
       arr.forEach(obj => {
@@ -325,11 +311,10 @@
       });
     }
 
-    function playTrack(uri){
+    function playTrack(uri) {
       const idx = playlistItems.findIndex(o=>o.track.uri===uri);
       api('/me/player/play',{method:'PUT',body:JSON.stringify({
-        context_uri:`spotify:playlist:${currentPlaylistId}`,
-        offset:{position:idx}
+        context_uri:`spotify:playlist:${currentPlaylistId}`, offset:{position:idx}
       })});
     }
 
@@ -341,10 +326,10 @@
       }
       window.onSpotifyWebPlaybackSDKReady = () => {
         player = new Spotify.Player({
-          name: 'Daddy’s Player',
+          name:'Daddy’s Player',
           getOAuthToken: cb => cb(access_token)
         });
-        player.addListener('ready', ({ device_id }) => {
+        player.addListener('ready', ({device_id}) => {
           api('/me/player',{method:'PUT',body:JSON.stringify({device_ids:[device_id]})});
           status('🎧 Device Ready');
         });
@@ -358,7 +343,7 @@
           document.getElementById('trackInfo').textContent =
             `${t.name} — ${t.artists.map(a=>a.name).join(', ')}`;
           document.getElementById('nextTrack').textContent =
-            next ? 'Next ➜ ' + next.name : '';
+            next ? 'Next ➜ '+next.name : '';
           document.querySelectorAll('#tracks li').forEach(li =>
             li.classList.toggle('playing', li.dataset.uri===t.uri)
           );
@@ -373,15 +358,16 @@
       document.getElementById('shuffleBtn').classList.toggle('active', st.shuffle_state);
       document.getElementById('repeatBtn').classList.toggle('active', st.repeat_state!=='off');
     }
+
     async function toggleShuffle(){
       const st = await api('/me/player');
-      await api(`/me/player/shuffle?state=${!st.shuffle_state}`, { method:'PUT' });
+      await api(`/me/player/shuffle?state=${!st.shuffle_state}`, {method:'PUT'});
       updateShuffleRepeat();
     }
     const repStates=['off','context','track']; let repIdx=0;
     async function toggleRepeat(){
-      repIdx = (repIdx+1)%3;
-      await api(`/me/player/repeat?state=${repStates[repIdx]}`, { method:'PUT' });
+      repIdx=(repIdx+1)%3;
+      await api(`/me/player/repeat?state=${repStates[repIdx]}`, {method:'PUT'});
       updateShuffleRepeat();
     }
 
