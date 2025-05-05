@@ -110,13 +110,32 @@
              border-bottom: none; /* Remove border from last item */
         }
 
-        /* --- Highlighting for Selected Playlist & Playing Track --- */
-        /* --- If text disappears, try temporarily removing !important and animation below --- */
+        /* ======================================================================== */
+        /* --- TEMPORARY DEBUGGING STYLE for Highlighting --- */
+        /* --- This uses high-contrast colors to test visibility. --- */
+        /* --- If this works (black text on yellow), your original colors/animation are the problem. --- */
+        /* --- If text is STILL invisible, use Inspect Element to debug further. --- */
+        /* --- Once fixed, remove this block and restore your original style below. --- */
+        #playlistSection li.selected,
+        #trackSection li.playing {
+            background: yellow !important; /* High visibility background */
+            color: black !important;      /* High contrast color */
+            animation: none !important;    /* Disable animation */
+            opacity: 1 !important;         /* Ensure full opacity */
+        }
+        /* --- END TEMPORARY DEBUGGING STYLE --- */
+        /* ======================================================================== */
+
+        /* --- Original Highlighting Style (Currently overridden by test style above) --- */
+        /*
         #playlistSection li.selected, #trackSection li.playing {
             background: var(--accent) !important;
-            color: var(--fg) !important; /* This should be light grey on pink */
+            color: var(--fg) !important; / * This should be light grey on pink * /
             animation: glow 1.5s infinite;
         }
+        */
+        /* --- End Original Highlighting Style --- */
+
 
         #playlistSection img { width: 40px; height: 40px; border-radius: 4px; flex-shrink: 0; }
         #trackSection header {
@@ -133,6 +152,12 @@
         #trackSection li:hover {
             background: var(--accent-dim);
         }
+        /* Prevent hover style from overriding the TEST yellow background */
+        #playlistSection li.selected:hover,
+        #trackSection li.playing:hover {
+             background: yellow !important;
+        }
+
         #playlistSection li:active,
         #trackSection li:active {
             background: var(--accent);
@@ -226,8 +251,14 @@
             try {
                 const res = await fetch(base_url + path, opts);
                 if (!res.ok) {
-                    console.error(`API Error ${res.status} on ${path}:`, await res.text().catch(() => 'Could not read error body'));
-                    throw new Error(`Spotify API Error: ${res.status}`); // Throw error to be caught
+                    // Log detailed error before throwing
+                    const errorBodyText = await res.text().catch(() => 'Could not read error body');
+                    console.error(`API Error ${res.status} on ${path}:`, errorBodyText);
+                    // Try to parse as JSON, default to text if parsing fails
+                    let errorJson = {};
+                    try { errorJson = JSON.parse(errorBodyText); } catch { /* ignore parsing error */ }
+                    // Throw an error object or message
+                    throw new Error(errorJson?.error?.message || `Spotify API Error: ${res.status}`);
                 }
                 // Handle empty response body for successful calls (e.g., PUT /me/player, PUT /shuffle)
                 if (res.status === 204 || res.headers.get('content-length') === '0') {
@@ -236,7 +267,7 @@
                 return await res.json(); // Only parse JSON if there's content
             } catch (error) {
                 console.error(`Workspace failed for ${path}:`, error);
-                // Rethrow or handle error appropriately, maybe update status
+                // Update status with the error message from the thrown error
                 status(`❌ API Error: ${error.message}`);
                 return null; // Return null or specific error object on failure
             }
@@ -354,8 +385,9 @@
             try {
                 while (url && fetchedCount < maxPlaylistsToFetch) {
                     const dat = await api(url); // Use the corrected 'api' helper
-                    if (!dat || !dat.items) { // Check if data fetching failed or returned unexpected format
-                        console.warn('Failed to fetch playlist data or reached end:', dat);
+                    if (dat === null) break; // Stop if api call failed
+                    if (!dat || !dat.items) { // Check if data has items
+                        console.warn('No items found in playlist response or reached end:', dat);
                         break; // Exit loop if data is invalid or empty
                     }
                     allPlaylists.push(...dat.items);
@@ -365,7 +397,7 @@
                 }
 
                 ul.innerHTML = ''; // Clear loading message
-                if (allPlaylists.length === 0) {
+                if (allPlaylists.length === 0 && !ul.querySelector('.separator')) { // Check if separator exists from featured
                      ul.innerHTML = '<li>No playlists found.</li>';
                 } else {
                     allPlaylists.forEach(pl => {
@@ -382,16 +414,17 @@
                         ul.appendChild(li);
                     });
                 }
-                // status('✅ Playlists loaded.'); // Status update is handled inside the function now
+                // status('✅ Playlists loaded.'); // Status update handled inside
 
             } catch (e) {
-                console.error("Error loading playlists:", e);
-                status('❌ Error loading playlists.');
+                // Error already logged and status updated by api() helper
+                console.error("Error during playlist loading loop:", e);
                 ul.innerHTML = '<li>Error loading playlists.</li>'; // Show error in list
             }
         }
 
         // 4) Featured / “Made for You” Approximation
+        // DEBUG: Removed &country=US from API call
         async function loadFeaturedPlaylists() {
             const ul = document.getElementById('playlists');
             // Optional: Add a visual separator if user playlists were loaded before this
@@ -402,9 +435,17 @@
                 ul.appendChild(sep);
             }
             try {
-                const data = await api('/browse/featured-playlists?limit=20&country=US'); // Fetch featured
+                // DEBUG: Removed &country=US parameter
+                const data = await api('/browse/featured-playlists?limit=20');
+                if (data === null) return; // Stop if API call failed
+
                 if (!data?.playlists?.items) {
-                    console.warn('No featured playlists found or error fetching.');
+                    console.warn('No featured playlists items found in response.');
+                    // Optionally remove the separator if no featured lists are loaded
+                     const sep = ul.querySelector('.separator');
+                     if (sep && ul.childNodes.length === 1) { // Only remove if it's the only thing there
+                          ul.removeChild(sep);
+                     }
                     return;
                 }
                 data.playlists.items.forEach(pl => {
@@ -423,9 +464,11 @@
                     ul.appendChild(li);
                 });
             } catch (e) {
-                console.warn('Featured playlists load failed:', e);
+                console.warn('Featured playlists load failed (error caught outside api helper):', e);
+                 // Error status already set by api() helper
             }
         }
+
 
         // 5) Track Loading & Rendering
         // !!! TODO: Implement pagination for playlists > 100 tracks using data.next URL
@@ -440,24 +483,25 @@
 
             // NOTE: This only gets the first 100 tracks. Needs pagination for full playlists.
             const data = await api(`/playlists/${id}/tracks?limit=100&fields=items(added_at,track(name,uri,artists(name),album(images))),next`);
+             if (data === null) { // API call failed
+                 ul.innerHTML = '<li>❌ Failed to load tracks.</li>';
+                 playlistItems = [];
+                 renderTracks(); // Render empty state
+                 return;
+             }
 
-            if (!data || !data.items) {
-                status(`❌ Failed to load tracks.`);
-                playlistItems = []; // Clear items on failure
-                ul.innerHTML = '<li>❌ Failed to load tracks.</li>';
-            } else {
-                // Filter out items with null tracks (e.g., local files not synced)
-                playlistItems = data.items
-                    .filter(item => item && item.track)
-                    .map(i => ({ track: i.track, added_at: i.added_at }));
-                status(`✅ Tracks loaded (${playlistItems.length} items).`);
-                // TODO: Add logic here to fetch more tracks using data.next if not null
-                if (data.next) {
-                     console.warn("Playlist has more tracks - pagination not implemented.");
-                     // You would typically add a "Load More" button or fetch automatically here.
-                }
-                 renderTracks(); // Render the loaded tracks
+            // Filter out items with null tracks (e.g., local files not synced)
+            playlistItems = (data.items || []) // Use empty array if items is null/undefined
+                .filter(item => item && item.track)
+                .map(i => ({ track: i.track, added_at: i.added_at }));
+
+            status(`✅ Tracks loaded (${playlistItems.length} items).`);
+            // TODO: Add logic here to fetch more tracks using data.next if not null
+            if (data.next) {
+                 console.warn("Playlist has more tracks - pagination not implemented.");
+                 // You would typically add a "Load More" button or fetch automatically here.
             }
+            renderTracks(); // Render the loaded tracks
         }
 
         function renderTracks() {
@@ -514,65 +558,53 @@
                     offset: { position: index } // Use the index from the rendered list
                 })
             }).then(response => {
-                 if (!response) { // Check if api call failed (returned null)
+                 if (response === null) { // API call failed
                      status("❌ Play command failed (API error).");
-                     // Revert UI feedback if needed
                      document.querySelector(`#tracks li[data-uri="${uri}"]`)?.classList.remove('playing');
-                 } else {
-                     // Success is handled by player_state_changed event
                  }
-             }).catch(err => { // Catch errors specific to this call
-                 console.error("Error sending play command:", err);
-                 status("❌ Play command failed.");
+                 // Success is handled by player_state_changed event if response was okay
+             }).catch(err => { // Catch errors from the PUT request itself (network etc)
+                 console.error("Network/fetch error sending play command:", err);
+                 status("❌ Play command failed (Network error).");
                  document.querySelector(`#tracks li[data-uri="${uri}"]`)?.classList.remove('playing');
              });
         }
 
         // 6) Web Playback SDK Initialization and Listeners
         function loadSDK() {
-            // Check if SDK script is already added or if player exists
              if (document.querySelector('script[src="https://sdk.scdn.co/spotify-player.js"]') || window.Spotify?.Player) {
                  console.log("SDK script already loaded or loading.");
-                 // If player exists and might be disconnected, try connecting again
                  if (player && typeof player.connect === 'function' && !player.isConnected?.()) {
                       console.log("Attempting to reconnect existing player...");
                       player.connect().catch(console.error);
                  }
-                 return; // Don't add the script again
+                 return;
              }
 
             const s = document.createElement('script');
             s.src = 'https://sdk.scdn.co/spotify-player.js';
-            s.async = true; // Load SDK asynchronously
+            s.async = true;
             document.head.appendChild(s);
 
             window.onSpotifyWebPlaybackSDKReady = () => {
                  status("🚀 SDK Ready, initializing player...");
                 player = new Spotify.Player({
-                    name: 'Daddy’s Player 🚀', // Player name in Spotify Connect list
-                    getOAuthToken: cb => {
-                        // TODO: Add token refresh logic here if needed
-                        // For now, just provide the current token
-                        cb(access_token);
-                    },
-                    volume: 0.5 // Optional: Set initial volume (0.0 to 1.0)
+                    name: 'Daddy’s Player 🚀',
+                    getOAuthToken: cb => cb(access_token),
+                    volume: 0.5
                 });
 
-                // --- SDK Event Listeners ---
                 ['initialization_error', 'authentication_error', 'account_error', 'playback_error']
                     .forEach(evt => player.addListener(evt, ({ message }) => {
                         console.error(`SDK ${evt}:`, message);
-                        status(`❌ SDK Error: ${evt} - ${message}`);
-                        // Special handling for auth errors - might need re-login
+                        status(`❌ SDK Error: ${evt}`); // Simplified status
                         if (evt === 'authentication_error') {
-                             document.getElementById('login').style.display = 'block'; // Show login button
-                             access_token = null; // Clear invalid token
-                             // Disable controls maybe?
+                             document.getElementById('login').style.display = 'block';
+                             access_token = null;
                              ['prevBtn', 'playPauseBtn', 'nextBtn', 'shuffleBtn', 'repeatBtn']
                                 .forEach(id=>document.getElementById(id).disabled=true);
                         }
                         if (evt === 'account_error') {
-                            // Alert user they might need Premium
                              alert("Spotify Premium is required for playback control via this app.");
                         }
                     }));
@@ -580,17 +612,13 @@
                 player.addListener('ready', ({ device_id }) => {
                     console.log('SDK Player Ready with Device ID', device_id);
                     status('🎧 Device Ready, selecting...');
-                    // IMPORTANT: Transfer playback to this new device ID
                     api('/me/player', {
                         method: 'PUT',
-                        body: JSON.stringify({ device_ids: [device_id], play: false }) // Transfer, don't auto-play
+                        body: JSON.stringify({ device_ids: [device_id], play: false })
                     }).then(response => {
                         if (response?.success) { status('🎧 Device Ready & Selected'); }
-                        else { status('⚠️ Device Ready, but failed to auto-select.'); }
-                    }).catch(err => {
-                        console.error("Failed to transfer playback:", err);
-                        status('⚠️ Device Ready, transfer failed.');
-                    });
+                        else { status('⚠️ Device Ready, failed to select.'); } // Simplified message
+                    }).catch(err => { /* Error handled by api() */ });
                 });
 
                 player.addListener('not_ready', ({ device_id }) => {
@@ -599,21 +627,18 @@
                 });
 
                 player.addListener('player_state_changed', (st) => {
-                     console.log("Player state changed:", st); // Log the full state for debugging
+                     console.log("Player state changed:", st);
                     if (!st) {
                         status('ℹ️ Player state unavailable (Inactive)');
-                        // Reset UI elements to default state
                         document.getElementById('playPauseBtn').textContent = '▶️ Play/Pause';
-                        document.getElementById('trackArt').src = ''; // Clear album art
+                        document.getElementById('trackArt').src = '';
                         document.getElementById('trackInfo').textContent = 'Not playing';
                         document.getElementById('nextTrack').textContent = '';
-                        document.body.style.setProperty('--bg-image', ''); // Reset background
-                        document.querySelectorAll('#tracks li.playing').forEach(li => li.classList.remove('playing')); // Clear playing class
-                        // Consider disabling controls if state is null for too long
+                        document.body.style.setProperty('--bg-image', '');
+                        document.querySelectorAll('#tracks li.playing').forEach(li => li.classList.remove('playing'));
                         return;
                     }
 
-                    // -- Update Now Playing Info --
                     const t = st.track_window.current_track;
                     const next = st.track_window.next_tracks[0];
                     if (t) {
@@ -627,27 +652,20 @@
                     }
                     document.getElementById('nextTrack').textContent = next ? `Next ➜ ${next.name}` : '';
 
-                    // -- Update Controls State --
                     document.getElementById('playPauseBtn').textContent = st.paused ? '▶️ Play' : '⏸️ Pause';
                     document.getElementById('shuffleBtn').classList.toggle('active', st.shuffle);
-                    const repeatMode = st.repeat_mode; // 0 = off, 1 = context, 2 = track
+                    const repeatMode = st.repeat_mode;
                     document.getElementById('repeatBtn').classList.toggle('active', repeatMode !== 0);
-                    repIdx = repeatMode; // Sync local index with actual state
+                    repIdx = repeatMode;
 
-                    // Enable/disable prev/next based on track window
                     document.getElementById('prevBtn').disabled = !st.track_window.previous_tracks.length;
                     document.getElementById('nextBtn').disabled = !st.track_window.next_tracks.length;
 
-                     // Update status based on play state
-                     // status(st.paused ? "⏸️ Paused" : "▶️ Playing"); // Can be noisy, optional
-
-                    // -- Update Track List Highlight --
                     document.querySelectorAll('#tracks li').forEach(li =>
                         li.classList.toggle('playing', t && li.dataset.uri === t.uri)
                     );
                 });
 
-                // --- Connect the Player ---
                 status("🔌 Connecting player...");
                 player.connect().then(success => {
                     if (success) {
@@ -656,7 +674,6 @@
                     } else {
                         console.error('The Web Playback SDK failed to connect.');
                         status('❌ SDK Connection Failed');
-                         // Might prompt user to ensure Spotify is open or check browser compatibility
                     }
                 }).catch(err => {
                     console.error("Error during player connect:", err);
@@ -666,7 +683,7 @@
         }
 
         // --- Control Button Helpers ---
-        async function updateShuffleRepeat() { // Primarily used for initial sync or if state seems off
+        async function updateShuffleRepeat() {
              try {
                  const st = await api('/me/player');
                  if (st && typeof st.shuffle_state !== 'undefined') {
@@ -675,13 +692,8 @@
                      document.getElementById('repeatBtn').classList.toggle('active', currentRepeatState !== 'off');
                      repIdx = repStates.indexOf(currentRepeatState);
                      if (repIdx === -1) repIdx = 0;
-                 } else if (st === null) {
-                      // API call failed, status already updated by api() helper
                  }
-             } catch (e) {
-                 console.error("Manual update of shuffle/repeat failed:", e);
-                 // Don't update status here, rely on api() helper for error reporting
-             }
+             } catch (e) { /* Error handled by api() */ }
         }
 
         async function toggleShuffle() {
@@ -689,44 +701,39 @@
                  const shuffleBtn = document.getElementById('shuffleBtn');
                  const newState = !shuffleBtn.classList.contains('active');
                  const response = await api(`/me/player/shuffle?state=${newState}`, { method: 'PUT' });
-                 if (response) { // Check if API call succeeded
-                     shuffleBtn.classList.toggle('active', newState); // Update UI immediately
+                 if (response) {
+                     shuffleBtn.classList.toggle('active', newState);
                      status(`🔀 Shuffle ${newState ? 'On' : 'Off'}`);
                  }
-                 // Rely on player_state_changed for confirmation, or call updateShuffleRepeat() if needed
-             } catch (e) { console.error("Failed to toggle shuffle:", e); } // api() handles status update
+             } catch (e) { /* Error handled by api() */ }
         }
 
-        const repStates = ['off', 'context', 'track']; let repIdx = 0; // Keep track locally
+        const repStates = ['off', 'context', 'track']; let repIdx = 0;
         async function toggleRepeat() {
              try {
-                 repIdx = (repIdx + 1) % 3; // Cycle through 0, 1, 2
+                 repIdx = (repIdx + 1) % 3;
                  const newState = repStates[repIdx];
                  const response = await api(`/me/player/repeat?state=${newState}`, { method: 'PUT' });
-                 if (response) { // Check if API call succeeded
+                 if (response) {
                      document.getElementById('repeatBtn').classList.toggle('active', newState !== 'off');
                      status(`🔁 Repeat ${newState}`);
                  }
-                 // Rely on player_state_changed for confirmation
-             } catch (e) { console.error("Failed to toggle repeat:", e); } // api() handles status update
+             } catch (e) { /* Error handled by api() */ }
         }
 
-        // 7) Global Unhandled Rejection Handler (Good for catching SDK internal errors)
+        // 7) Global Unhandled Rejection Handler
         window.addEventListener('unhandledrejection', e => {
-            // Specifically ignore expected SDK errors if needed
             if (e.reason && e.reason.name === 'CloudPlaybackClientError') {
-                e.preventDefault(); // Prevent console error spam for this specific type
+                e.preventDefault();
                 console.warn('Ignored CloudPlaybackClientError:', e.reason.message);
             } else {
-                // Log other unhandled rejections
                 console.error("Unhandled Rejection:", e.reason || e);
-                status("⚠️ An unexpected error occurred."); // Generic status update
+                status("⚠️ An unexpected error occurred.");
             }
         });
 
         // --- Initial Setup ---
         document.getElementById('login').onclick = redirectToAuth;
-        // Run handleRedirect on load to process potential callback parameters
         window.addEventListener('load', handleRedirect);
 
     </script>
