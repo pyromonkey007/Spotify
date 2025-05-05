@@ -63,6 +63,26 @@
     #trackSection select { background:var(--accent-dim); border:1px solid var(--accent);
                            padding:.25rem; color:var(--fg); border-radius:4px;
                            cursor:pointer; }
+  /* ————— Controls: show a pressed state ————— */
+#controls button:active {
+  background: var(--accent) !important;
+  color: var(--fg) !important;
+  box-shadow: 0 0 12px var(--accent);
+  transform: scale(0.95);
+}
+
+/* ————— Playlists & Tracks: hover & press feedback ————— */
+#playlistSection li:hover,
+#trackSection li:hover {
+  background: var(--accent-dim);
+}
+
+#playlistSection li:active,
+#trackSection li:active {
+  background: var(--accent);
+  color: var(--fg);
+  animation: none; /* stop glow while pressing */
+}
   </style>
 </head>
 <body>
@@ -264,11 +284,19 @@
       });
     }
     function playTrack(uri){
-      const idx=playlistItems.findIndex(o=>o.track.uri===uri);
-      api('/me/player/play',{method:'PUT',body:JSON.stringify({
-        context_uri:`spotify:playlist:${currentPlaylistId}`,offset:{position:idx}
-      })});
-    }
+  // 1) Immediate UI feedback:
+  document.querySelectorAll('#tracks li').forEach(li =>
+    li.classList.toggle('playing', li.dataset.uri === uri)
+  );
+  // 2) Fire off the play command:
+  api('/me/player/play', {
+    method: 'PUT',
+    body: JSON.stringify({
+      context_uri: `spotify:playlist:${currentPlaylistId}`,
+      offset: { position: playlistItems.findIndex(o => o.track.uri === uri) }
+    })
+  });
+}
 
     // 6) Web Playback SDK
     function loadSDK(){
