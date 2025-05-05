@@ -90,7 +90,7 @@
         #playlistSection ul, #trackSection ul { list-style: none; }
 
         @keyframes fadeIn { to { opacity: 1 } }
-        /* NOTE: Glow animation is defined but currently disabled in the rule below */
+        /* Glow animation definition */
         @keyframes glow {
             0%, 100% { box-shadow: 0 0 12px var(--accent) }
             50% { box-shadow: 0 0 20px var(--accent) }
@@ -105,14 +105,13 @@
         #playlistSection li:last-child, #trackSection li:last-child { border-bottom: none; }
 
         /* --- Highlighting Style --- */
-        /* --- Animation is commented out below to prevent potential rendering glitches. --- */
-        /* --- If highlighting is now smooth, you can try uncommenting 'animation: glow...' --- */
+        /* --- Glow animation RE-ENABLED below. If visual glitches return, comment it out again. --- */
         #playlistSection li.selected,
         #trackSection li.playing {
             background: var(--accent) !important;
             color: var(--fg) !important; /* Pink background, light grey text */
-            /* animation: glow 1.5s infinite; */ /* Keep disabled for testing stability */
-            opacity: 1 !important; /* Explicitly set opacity */
+            animation: glow 1.5s infinite;  /* Re-enabled */
+            opacity: 1 !important;
         }
 
         #playlistSection img { width: 40px; height: 40px; border-radius: 4px; flex-shrink: 0; }
@@ -129,10 +128,9 @@
         #trackSection li:hover {
             background: var(--accent-dim);
         }
-         /* Prevent hover from overriding selected/playing state */
         #playlistSection li.selected:hover,
         #trackSection li.playing:hover {
-             background: var(--accent) !important;
+             background: var(--accent) !important; /* Keep selected color on hover */
         }
 
         #playlistSection li:active,
@@ -141,7 +139,6 @@
             color: var(--fg);
             animation: none; /* Keep animation off during click */
         }
-        /* Removed separator CSS as featured playlists are removed */
     </style>
 </head>
 <body>
@@ -240,65 +237,25 @@
 
             document.getElementById('playlists').innerHTML = '<li>Loading playlists...</li>';
             await loadPlaylists(); // Only load user playlists
-            // Removed call to loadFeaturedPlaylists() as it was causing errors
+            // No call to loadFeaturedPlaylists()
             loadSDK();
         }
 
-        // Library Loading (Loads ONLY User Playlists now)
-        async function loadPlaylists() {
-            const ul = document.getElementById('playlists');
-            ul.innerHTML = '<li>⏳ Loading your playlists...</li>';
-            let url = '/me/playlists?limit=50';
-            let allPlaylists = [];
-            let fetchedCount = 0;
-            const maxPlaylistsToFetch = 200; // Safety limit
-
-            try {
-                while (url && fetchedCount < maxPlaylistsToFetch) {
-                    const dat = await api(url);
-                    if (dat === null) break;
-                    if (!dat || !dat.items) { break; }
-                    allPlaylists.push(...dat.items);
-                    fetchedCount += dat.items.length;
-                    url = dat.next ? dat.next.replace('https://api.spotify.com/v1', '') : null;
-                }
-
-                ul.innerHTML = ''; // Clear loading message
-                if (allPlaylists.length === 0) {
-                    ul.innerHTML = '<li>No playlists found.</li>';
-                } else {
-                    allPlaylists.forEach(pl => {
-                        const li = document.createElement('li');
-                        li.dataset.id = pl.id;
-                        const img = document.createElement('img');
-                        img.src = pl.images?.[0]?.url || 'placeholder.png';
-                        img.alt = pl.name;
-                        img.loading = 'lazy';
-                        li.appendChild(img);
-                        li.appendChild(document.createTextNode(pl.name));
-                        li.onclick = () => loadTracks(pl.id);
-                        ul.appendChild(li);
-                    });
-                }
-            } catch (e) {
-                console.error("Error during playlist loading loop:", e);
-                ul.innerHTML = '<li>Error loading playlists.</li>';
-            }
-        }
-
-        // REMOVED loadFeaturedPlaylists function entirely
+        // Library Loading (Loads ONLY User Playlists)
+        async function loadPlaylists() { const ul=document.getElementById('playlists'); ul.innerHTML='<li>⏳ Loading your playlists...</li>'; let url='/me/playlists?limit=50'; let allPlaylists=[]; let fetchedCount=0; const maxPlaylistsToFetch=200; try { while(url&&fetchedCount<maxPlaylistsToFetch){ const dat=await api(url); if(dat===null)break; if(!dat||!dat.items){ break; } allPlaylists.push(...dat.items); fetchedCount+=dat.items.length; url=dat.next?dat.next.replace('https://api.spotify.com/v1',''):null; } ul.innerHTML=''; if(allPlaylists.length===0){ ul.innerHTML='<li>No playlists found.</li>'; }else{ allPlaylists.forEach(pl=>{ const li=document.createElement('li'); li.dataset.id=pl.id; const img=document.createElement('img'); img.src=pl.images?.[0]?.url||'placeholder.png'; img.alt=pl.name; img.loading='lazy'; li.appendChild(img); li.appendChild(document.createTextNode(pl.name)); li.onclick=()=>loadTracks(pl.id); ul.appendChild(li); }); } } catch(e){ console.error("Error during playlist loading loop:",e); ul.innerHTML='<li>Error loading playlists.</li>'; } }
 
         // Track Loading & Rendering (Unchanged)
         async function loadTracks(id){ currentPlaylistId=id; document.querySelectorAll('#playlists li').forEach(li=> li.classList.toggle('selected',li.dataset.id===id) ); status(`⏳ Loading tracks...`); const ul=document.getElementById('tracks'); ul.innerHTML='<li>⏳ Loading tracks...</li>'; const data=await api(`/playlists/${id}/tracks?limit=100&fields=items(added_at,track(name,uri,artists(name),album(images))),next`); if(data===null){ ul.innerHTML='<li>❌ Failed to load tracks.</li>'; playlistItems=[]; renderTracks(); return; } playlistItems=(data.items||[]) .filter(item=>item&&item.track) .map(i=>({track:i.track,added_at:i.added_at})); status(`✅ Tracks loaded (${playlistItems.length} items).`); if(data.next){ console.warn("Playlist has more tracks - pagination not implemented."); } renderTracks(); }
         function renderTracks(){ const mode=document.getElementById('sortSelect').value; let arr=[...playlistItems]; const ul=document.getElementById('tracks'); ul.innerHTML=''; if(arr.length===0){ ul.innerHTML='<li>No tracks found in this playlist.</li>'; return; } try { if(mode==='newest')arr.sort((a,b)=>(new Date(b.added_at).getTime()||0)-(new Date(a.added_at).getTime()||0)); if(mode==='oldest')arr.sort((a,b)=>(new Date(a.added_at).getTime()||0)-(new Date(b.added_at).getTime()||0)); } catch(e){ console.warn("Error sorting tracks by date:",e); } arr.forEach((obj,index)=>{ if(!obj?.track?.artists){ console.warn("Skipping invalid track object:",obj); return; } const li=document.createElement('li'); li.dataset.uri=obj.track.uri; li.textContent=`${obj.track.name} — ${obj.track.artists.map(a=>a.name).join(', ')}`; li.style.animationDelay=`${index*30}ms`; li.onclick=()=>playTrack(obj.track.uri,index); ul.appendChild(li); }); }
 
-        // Play Track - Highlighting logic removed from here (handled by player_state_changed)
+        // Play Track - No highlighting change here
         function playTrack(uri, index) {
             if (!player || !currentPlaylistId) {
                 status("Player not ready or no playlist selected.");
                 return;
             }
-            status(`▶️ Requesting track...`);
+            // Set status when requesting, will be updated by player_state_changed
+            status("▶️ Requesting track...");
             console.log(`Requesting Play: Playlist ${currentPlaylistId}, Track URI ${uri}, Index ${index}`);
             api('/me/player/play', {
                 method: 'PUT',
@@ -308,14 +265,14 @@
                 })
             }).then(response => {
                  if (response === null) { status("❌ Play command failed (API error)."); }
-                 // Actual track change confirmed by player_state_changed
+                 // Status updated by player_state_changed
              }).catch(err => {
                  console.error("Network/fetch error sending play command:", err);
                  status("❌ Play command failed (Network error).");
              });
         }
 
-        // Web Playback SDK Initialization and Listeners (Unchanged logic)
+        // Web Playback SDK Initialization and Listeners
         function loadSDK() {
              if (document.querySelector('script[src="https://sdk.scdn.co/spotify-player.js"]') || window.Spotify?.Player) { if (player&&typeof player.connect==='function'&&!player.isConnected?.()) { player.connect().catch(console.error); } return; }
             const s=document.createElement('script'); s.src='https://sdk.scdn.co/spotify-player.js'; s.async=true; document.head.appendChild(s);
@@ -329,11 +286,11 @@
                 player.addListener('ready', ({ device_id }) => { console.log('SDK Player Ready', device_id); status('🎧 Device Ready, selecting...'); api('/me/player', { method:'PUT', body: JSON.stringify({ device_ids: [device_id], play: false }) }).then(r => { if (r?.success) status('🎧 Device Ready & Selected'); else status('⚠️ Device Ready, failed select.'); }).catch(()=>{}); });
                 player.addListener('not_ready', ({ device_id }) => { console.log('Device Offline', device_id); status('🔌 Device Offline'); });
 
-                // Player State Changed - Sole handler for '.playing' class
+                // Player State Changed - Updates status message and highlighting
                 player.addListener('player_state_changed', (st) => {
                      console.log("Player state changed:", st);
                     if (!st) {
-                        status('ℹ️ Player state unavailable (Inactive)');
+                        status('ℹ️ Player state unavailable (Inactive)'); // Update status
                         document.getElementById('playPauseBtn').textContent='▶️ Play/Pause';
                         document.getElementById('trackArt').src='';
                         document.getElementById('trackInfo').textContent='Not playing';
@@ -342,6 +299,14 @@
                         document.querySelectorAll('#tracks li.playing').forEach(li => li.classList.remove('playing'));
                         return;
                     }
+
+                    // --- Update Status based on playing/paused ---
+                    if (st.paused) {
+                        status("⏸️ Paused");
+                    } else {
+                        status("▶️ Playing");
+                    }
+                    // --- Update rest of UI ---
 
                     const t = st.track_window.current_track;
                     const next = st.track_window.next_tracks[0];
@@ -369,7 +334,7 @@
             }; // End onSpotifyWebPlaybackSDKReady
         } // End loadSDK
 
-        // Control Button Helpers (Unchanged)
+        // Control Button Helpers (Unchanged - status updates might be overridden by player_state_changed quickly)
         async function updateShuffleRepeat(){ try { const st=await api('/me/player'); if(st&&typeof st.shuffle_state!=='undefined'){ document.getElementById('shuffleBtn').classList.toggle('active',st.shuffle_state); const crs=st.repeat_state||'off'; document.getElementById('repeatBtn').classList.toggle('active',crs!=='off'); repIdx=repStates.indexOf(crs); if(repIdx===-1)repIdx=0; } } catch(e){} }
         async function toggleShuffle(){ try { const btn=document.getElementById('shuffleBtn'); const newState=!btn.classList.contains('active'); const r=await api(`/me/player/shuffle?state=${newState}`,{method:'PUT'}); if(r){ btn.classList.toggle('active',newState); status(`🔀 Shuffle ${newState?'On':'Off'}`); } } catch(e){} }
         const repStates=['off','context','track']; let repIdx=0;
