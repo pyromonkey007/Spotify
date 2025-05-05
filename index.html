@@ -6,6 +6,7 @@
     <meta name="viewport" content="width=device-width,initial-scale=1">
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
     <style>
+        /* Styles remain the same as the previous version */
         :root {
             --bg: #0a0a0a;
             --fg: #e0e0e0;
@@ -18,7 +19,6 @@
             font-family: 'Orbitron', sans-serif; background: var(--bg); color: var(--fg);
             display: flex; flex-direction: column; height: 100vh; overflow: hidden;
         }
-        /* Background Image Effect */
         body::before {
             content: ''; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background-image: var(--bg-image), radial-gradient(circle at top left, var(--accent), #000);
@@ -90,7 +90,6 @@
         #playlistSection ul, #trackSection ul { list-style: none; }
 
         @keyframes fadeIn { to { opacity: 1 } }
-        /* Glow animation definition */
         @keyframes glow {
             0%, 100% { box-shadow: 0 0 12px var(--accent) }
             50% { box-shadow: 0 0 20px var(--accent) }
@@ -104,13 +103,11 @@
         }
         #playlistSection li:last-child, #trackSection li:last-child { border-bottom: none; }
 
-        /* --- Highlighting Style --- */
-        /* --- Glow animation RE-ENABLED below. If visual glitches return, comment it out again. --- */
         #playlistSection li.selected,
         #trackSection li.playing {
             background: var(--accent) !important;
-            color: var(--fg) !important; /* Pink background, light grey text */
-            animation: glow 1.5s infinite;  /* Re-enabled */
+            color: var(--fg) !important;
+            animation: glow 1.5s infinite; /* Glow re-enabled */
             opacity: 1 !important;
         }
 
@@ -130,14 +127,13 @@
         }
         #playlistSection li.selected:hover,
         #trackSection li.playing:hover {
-             background: var(--accent) !important; /* Keep selected color on hover */
+             background: var(--accent) !important;
         }
-
         #playlistSection li:active,
         #trackSection li:active {
             background: var(--accent);
             color: var(--fg);
-            animation: none; /* Keep animation off during click */
+            animation: none;
         }
     </style>
 </head>
@@ -183,14 +179,16 @@
     <script>
         // PKCE + API helpers...
         const client_id = 'b00e3fe2a9394a86a64048c96a3ff5f3';
-        const redirect_uri = 'https://pyromonkey007.github.io/Spotify/'; // Check this matches Dashboard!
+        const redirect_uri = 'https://pyromonkey007.github.io/Spotify/';
         const scopes = [
             'streaming', 'user-read-private', 'user-read-email',
             'user-read-playback-state', 'user-modify-playback-state',
             'playlist-read-private', 'playlist-read-collaborative'
         ].join(' ');
         const STATE_KEY = 'spotify_pkce_state', VERIFIER_KEY = 'spotify_pkce_verifier';
-        let access_token, player, currentPlaylistId, playlistItems = [];
+        let access_token, player, currentPlaylistId;
+        // Initialize playlistItems as empty array
+        let playlistItems = [];
 
         // PKCE Helper Functions (Unchanged)
         function randStr(l){ const c='ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'; let s='',a=new Uint8Array(l);crypto.getRandomValues(a); a.forEach(i=>s+=c[i%c.length]);return s; }
@@ -199,7 +197,13 @@
 
         // API Helper (Unchanged)
         async function api(path, opts = {}) {
-            const base_url = 'https://api.spotify.com/v1'; // Ensure this is correct!
+            const base_url = 'https://api.spotify.com/v1';
+            // Ensure access token is available
+            if (!access_token) {
+                 console.error("API call attempted without access token for path:", path);
+                 status("❌ Error: Not Logged In");
+                 return null; // Prevent API call without token
+            }
             opts.headers = { ...(opts.headers || {}), 'Authorization': 'Bearer ' + access_token };
             try {
                 const res = await fetch(base_url + path, opts);
@@ -207,13 +211,24 @@
                     const errorBodyText = await res.text().catch(() => 'Could not read error body');
                     console.error(`API Error ${res.status} on ${path}:`, errorBodyText);
                     let errorJson = {}; try { errorJson = JSON.parse(errorBodyText); } catch { /* ignore */ }
+                    // Check for common errors like expired token
+                    if (res.status === 401 || errorJson?.error?.message?.includes("token expired")) {
+                         status("❌ Error: Token Expired. Please log in again.");
+                         // Optionally trigger re-authentication or show login button
+                         document.getElementById('login').style.display = 'block';
+                    } else {
+                         status(`❌ API Error: ${errorJson?.error?.message || res.status}`);
+                    }
                     throw new Error(errorJson?.error?.message || `Spotify API Error: ${res.status}`);
                 }
                 if (res.status === 204 || res.headers.get('content-length') === '0') { return { success: true }; }
                 return await res.json();
             } catch (error) {
                 console.error(`Workspace failed for ${path}:`, error);
-                status(`❌ API Error: ${error.message}`);
+                // Status is already set in the error handling above or if fetch itself failed
+                if (!document.getElementById('status').textContent.startsWith('❌')) {
+                    status(`❌ Network Error for ${path}`);
+                }
                 return null;
             }
         }
@@ -236,109 +251,149 @@
             document.getElementById('sortSelect').onchange = renderTracks;
 
             document.getElementById('playlists').innerHTML = '<li>Loading playlists...</li>';
-            await loadPlaylists(); // Only load user playlists
+            await loadPlaylists();
             // No call to loadFeaturedPlaylists()
             loadSDK();
         }
 
-        // Library Loading (Loads ONLY User Playlists)
+        // Library Loading (Loads ONLY User Playlists - Unchanged)
         async function loadPlaylists() { const ul=document.getElementById('playlists'); ul.innerHTML='<li>⏳ Loading your playlists...</li>'; let url='/me/playlists?limit=50'; let allPlaylists=[]; let fetchedCount=0; const maxPlaylistsToFetch=200; try { while(url&&fetchedCount<maxPlaylistsToFetch){ const dat=await api(url); if(dat===null)break; if(!dat||!dat.items){ break; } allPlaylists.push(...dat.items); fetchedCount+=dat.items.length; url=dat.next?dat.next.replace('https://api.spotify.com/v1',''):null; } ul.innerHTML=''; if(allPlaylists.length===0){ ul.innerHTML='<li>No playlists found.</li>'; }else{ allPlaylists.forEach(pl=>{ const li=document.createElement('li'); li.dataset.id=pl.id; const img=document.createElement('img'); img.src=pl.images?.[0]?.url||'placeholder.png'; img.alt=pl.name; img.loading='lazy'; li.appendChild(img); li.appendChild(document.createTextNode(pl.name)); li.onclick=()=>loadTracks(pl.id); ul.appendChild(li); }); } } catch(e){ console.error("Error during playlist loading loop:",e); ul.innerHTML='<li>Error loading playlists.</li>'; } }
 
-        // Track Loading & Rendering (Unchanged)
-        async function loadTracks(id){ currentPlaylistId=id; document.querySelectorAll('#playlists li').forEach(li=> li.classList.toggle('selected',li.dataset.id===id) ); status(`⏳ Loading tracks...`); const ul=document.getElementById('tracks'); ul.innerHTML='<li>⏳ Loading tracks...</li>'; const data=await api(`/playlists/${id}/tracks?limit=100&fields=items(added_at,track(name,uri,artists(name),album(images))),next`); if(data===null){ ul.innerHTML='<li>❌ Failed to load tracks.</li>'; playlistItems=[]; renderTracks(); return; } playlistItems=(data.items||[]) .filter(item=>item&&item.track) .map(i=>({track:i.track,added_at:i.added_at})); status(`✅ Tracks loaded (${playlistItems.length} items).`); if(data.next){ console.warn("Playlist has more tracks - pagination not implemented."); } renderTracks(); }
-        function renderTracks(){ const mode=document.getElementById('sortSelect').value; let arr=[...playlistItems]; const ul=document.getElementById('tracks'); ul.innerHTML=''; if(arr.length===0){ ul.innerHTML='<li>No tracks found in this playlist.</li>'; return; } try { if(mode==='newest')arr.sort((a,b)=>(new Date(b.added_at).getTime()||0)-(new Date(a.added_at).getTime()||0)); if(mode==='oldest')arr.sort((a,b)=>(new Date(a.added_at).getTime()||0)-(new Date(b.added_at).getTime()||0)); } catch(e){ console.warn("Error sorting tracks by date:",e); } arr.forEach((obj,index)=>{ if(!obj?.track?.artists){ console.warn("Skipping invalid track object:",obj); return; } const li=document.createElement('li'); li.dataset.uri=obj.track.uri; li.textContent=`${obj.track.name} — ${obj.track.artists.map(a=>a.name).join(', ')}`; li.style.animationDelay=`${index*30}ms`; li.onclick=()=>playTrack(obj.track.uri,index); ul.appendChild(li); }); }
+        // --- Track Loading & Rendering ---
+        // --- UPDATED loadTracks to handle pagination ---
+        async function loadTracks(id) {
+            currentPlaylistId = id;
+            document.querySelectorAll('#playlists li').forEach(li =>
+                li.classList.toggle('selected', li.dataset.id === id)
+            );
+            status(`⏳ Loading tracks (0)...`); // Initial status
+            const ul = document.getElementById('tracks');
+            ul.innerHTML = '<li>⏳ Loading tracks...</li>';
 
-        // Play Track - No highlighting change here
+            // Reset playlistItems for the new playlist
+            playlistItems = [];
+            let fetchedCount = 0;
+            // Initial URL for the first batch of tracks (max 100)
+            // Request needed fields: added_at for sorting, track details for display/playback
+            let url = `/playlists/${id}/tracks?limit=100&fields=next,items(added_at,track(name,uri,artists(name),album(images)))`;
+
+            try {
+                while (url) {
+                    const data = await api(url); // Fetch a page of tracks
+                    if (data === null) { // API call failed
+                        ul.innerHTML = '<li>❌ Failed to load tracks.</li>';
+                        renderTracks(); // Render empty state if possible
+                        return; // Stop loading this playlist
+                    }
+
+                    // Process valid items
+                    const validItems = (data.items || [])
+                        .filter(item => item && item.track) // Filter out items with null track
+                        .map(i => ({ track: i.track, added_at: i.added_at }));
+
+                    playlistItems.push(...validItems); // Append new tracks to the list
+                    fetchedCount += validItems.length;
+                    status(`⏳ Loading tracks (${fetchedCount})...`); // Update loading status
+
+                    // Prepare URL for the next page, making it relative for the api helper
+                    url = data.next ? data.next.replace('https://api.spotify.com/v1', '') : null;
+                } // End while loop
+
+                status(`✅ Tracks loaded (${playlistItems.length} items).`); // Final status
+                renderTracks(); // Render all fetched tracks
+
+            } catch (e) {
+                // Error should have been handled by api() helper, but catch unexpected ones
+                console.error("Error during track loading loop:", e);
+                ul.innerHTML = '<li>❌ Error loading tracks.</li>';
+                playlistItems = []; // Clear potentially partial list
+                renderTracks(); // Render empty state
+            }
+        }
+
+        // Render Tracks (Unchanged - renders based on the now complete playlistItems)
+        function renderTracks() {
+             const mode=document.getElementById('sortSelect').value;
+             // Use the globally stored playlistItems which is now fully populated
+             let arr=[...playlistItems];
+             const ul=document.getElementById('tracks');
+             ul.innerHTML='';
+             if(arr.length===0){
+                 ul.innerHTML='<li>No tracks found or loaded.</li>'; // Adjusted message
+                 return;
+             }
+             try {
+                 if(mode==='newest')arr.sort((a,b)=>(new Date(b.added_at).getTime()||0)-(new Date(a.added_at).getTime()||0));
+                 if(mode==='oldest')arr.sort((a,b)=>(new Date(a.added_at).getTime()||0)-(new Date(b.added_at).getTime()||0));
+             } catch(e){ console.warn("Error sorting tracks by date:",e); }
+             arr.forEach((obj,index)=>{
+                 if(!obj?.track?.artists){ console.warn("Skipping invalid track object:",obj); return; }
+                 const li=document.createElement('li');
+                 li.dataset.uri=obj.track.uri;
+                 li.textContent=`${obj.track.name} — ${obj.track.artists.map(a=>a.name).join(', ')}`;
+                 li.style.animationDelay=`${index*30}ms`;
+                 // Pass index relative to the *final, sorted* array being rendered
+                 li.onclick=()=>playTrack(obj.track.uri, index);
+                 ul.appendChild(li);
+             });
+         }
+
+        // Play Track (Unchanged - plays based on index in current rendered list)
         function playTrack(uri, index) {
             if (!player || !currentPlaylistId) {
                 status("Player not ready or no playlist selected.");
                 return;
             }
-            // Set status when requesting, will be updated by player_state_changed
             status("▶️ Requesting track...");
             console.log(`Requesting Play: Playlist ${currentPlaylistId}, Track URI ${uri}, Index ${index}`);
+            // Important: The 'index' here corresponds to the position in the currently rendered list
+            // (which might be sorted differently from the original API order).
+            // Using context_uri + offset should work correctly regardless of client-side sorting.
             api('/me/player/play', {
                 method: 'PUT',
                 body: JSON.stringify({
                     context_uri: `spotify:playlist:${currentPlaylistId}`,
-                    offset: { position: index }
+                    offset: { position: index } // Offset is relative to the playlist's context on Spotify
                 })
             }).then(response => {
                  if (response === null) { status("❌ Play command failed (API error)."); }
-                 // Status updated by player_state_changed
              }).catch(err => {
                  console.error("Network/fetch error sending play command:", err);
                  status("❌ Play command failed (Network error).");
              });
         }
 
-        // Web Playback SDK Initialization and Listeners
+        // Web Playback SDK Initialization and Listeners (Unchanged - includes status updates)
         function loadSDK() {
              if (document.querySelector('script[src="https://sdk.scdn.co/spotify-player.js"]') || window.Spotify?.Player) { if (player&&typeof player.connect==='function'&&!player.isConnected?.()) { player.connect().catch(console.error); } return; }
             const s=document.createElement('script'); s.src='https://sdk.scdn.co/spotify-player.js'; s.async=true; document.head.appendChild(s);
             window.onSpotifyWebPlaybackSDKReady = () => {
                  status("🚀 SDK Ready, initializing player...");
-                player = new Spotify.Player({ name: 'Daddy’s Player 🚀', getOAuthToken: cb => cb(access_token), volume: 0.5 });
-
+                player = new Spotify.Player({ name: 'Daddy’s Spotify Player 🚀', getOAuthToken: cb => cb(access_token), volume: 0.5 });
                 ['initialization_error', 'authentication_error', 'account_error', 'playback_error']
                     .forEach(evt => player.addListener(evt, ({ message }) => { console.error(`SDK ${evt}:`, message); status(`❌ SDK Error: ${evt}`); if (evt === 'authentication_error') { document.getElementById('login').style.display='block'; access_token=null; ['prevBtn','playPauseBtn','nextBtn','shuffleBtn','repeatBtn'].forEach(id=>document.getElementById(id).disabled=true); } if (evt === 'account_error') { alert("Spotify Premium required."); } }));
-
                 player.addListener('ready', ({ device_id }) => { console.log('SDK Player Ready', device_id); status('🎧 Device Ready, selecting...'); api('/me/player', { method:'PUT', body: JSON.stringify({ device_ids: [device_id], play: false }) }).then(r => { if (r?.success) status('🎧 Device Ready & Selected'); else status('⚠️ Device Ready, failed select.'); }).catch(()=>{}); });
                 player.addListener('not_ready', ({ device_id }) => { console.log('Device Offline', device_id); status('🔌 Device Offline'); });
-
-                // Player State Changed - Updates status message and highlighting
                 player.addListener('player_state_changed', (st) => {
                      console.log("Player state changed:", st);
-                    if (!st) {
-                        status('ℹ️ Player state unavailable (Inactive)'); // Update status
-                        document.getElementById('playPauseBtn').textContent='▶️ Play/Pause';
-                        document.getElementById('trackArt').src='';
-                        document.getElementById('trackInfo').textContent='Not playing';
-                        document.getElementById('nextTrack').textContent='';
-                        document.body.style.setProperty('--bg-image','');
-                        document.querySelectorAll('#tracks li.playing').forEach(li => li.classList.remove('playing'));
-                        return;
-                    }
-
-                    // --- Update Status based on playing/paused ---
-                    if (st.paused) {
-                        status("⏸️ Paused");
-                    } else {
-                        status("▶️ Playing");
-                    }
-                    // --- Update rest of UI ---
-
-                    const t = st.track_window.current_track;
-                    const next = st.track_window.next_tracks[0];
-
+                    if (!st) { status('ℹ️ Player state unavailable (Inactive)'); document.getElementById('playPauseBtn').textContent='▶️ Play/Pause'; document.getElementById('trackArt').src=''; document.getElementById('trackInfo').textContent='Not playing'; document.getElementById('nextTrack').textContent=''; document.body.style.setProperty('--bg-image',''); document.querySelectorAll('#tracks li.playing').forEach(li => li.classList.remove('playing')); return; }
+                    if (st.paused) { status("⏸️ Paused"); } else { status("▶️ Playing"); }
+                    const t = st.track_window.current_track; const next = st.track_window.next_tracks[0];
                     if (t) { document.getElementById('trackArt').src = t.album.images[0]?.url || 'placeholder.png'; document.body.style.setProperty('--bg-image', `url(${t.album.images[0]?.url})`); document.getElementById('trackInfo').textContent = `${t.name} — ${t.artists.map(a => a.name).join(', ')}`; } else { document.getElementById('trackArt').src = ''; document.getElementById('trackInfo').textContent = 'No track loaded'; document.body.style.setProperty('--bg-image', ''); }
                     document.getElementById('nextTrack').textContent = next ? `Next ➜ ${next.name}` : '';
-
-                    document.getElementById('playPauseBtn').textContent = st.paused ? '▶️ Play' : '⏸️ Pause';
-                    document.getElementById('shuffleBtn').classList.toggle('active', st.shuffle);
-                    const repeatMode = st.repeat_mode;
-                    document.getElementById('repeatBtn').classList.toggle('active', repeatMode !== 0);
-                    repIdx = repeatMode;
-                    document.getElementById('prevBtn').disabled = !st.track_window.previous_tracks.length;
-                    document.getElementById('nextBtn').disabled = !st.track_window.next_tracks.length;
-
-                    // Update Track List Highlight based *only* on this event data
-                    document.querySelectorAll('#tracks li').forEach(li => {
-                        const isPlaying = t && li.dataset.uri === t.uri;
-                        li.classList.toggle('playing', isPlaying);
-                    });
-                }); // End player_state_changed listener
-
+                    document.getElementById('playPauseBtn').textContent = st.paused ? '▶️ Play' : '⏸️ Pause'; document.getElementById('shuffleBtn').classList.toggle('active', st.shuffle); const repeatMode = st.repeat_mode; document.getElementById('repeatBtn').classList.toggle('active', repeatMode !== 0); repIdx = repeatMode; document.getElementById('prevBtn').disabled = !st.track_window.previous_tracks.length; document.getElementById('nextBtn').disabled = !st.track_window.next_tracks.length;
+                    document.querySelectorAll('#tracks li').forEach(li => { const isPlaying = t && li.dataset.uri === t.uri; li.classList.toggle('playing', isPlaying); });
+                });
                 status("🔌 Connecting player...");
                 player.connect().then(success => { if(success){ console.log('SDK connected!'); status('🔗 SDK Connected'); } else { console.error('SDK failed connect.'); status('❌ SDK Connect Fail'); } }).catch(err => { console.error("Player connect error:", err); status('❌ SDK Connect Error'); });
-            }; // End onSpotifyWebPlaybackSDKReady
-        } // End loadSDK
+            };
+        }
 
-        // Control Button Helpers (Unchanged - status updates might be overridden by player_state_changed quickly)
+        // Control Button Helpers (Unchanged)
         async function updateShuffleRepeat(){ try { const st=await api('/me/player'); if(st&&typeof st.shuffle_state!=='undefined'){ document.getElementById('shuffleBtn').classList.toggle('active',st.shuffle_state); const crs=st.repeat_state||'off'; document.getElementById('repeatBtn').classList.toggle('active',crs!=='off'); repIdx=repStates.indexOf(crs); if(repIdx===-1)repIdx=0; } } catch(e){} }
-        async function toggleShuffle(){ try { const btn=document.getElementById('shuffleBtn'); const newState=!btn.classList.contains('active'); const r=await api(`/me/player/shuffle?state=${newState}`,{method:'PUT'}); if(r){ btn.classList.toggle('active',newState); status(`🔀 Shuffle ${newState?'On':'Off'}`); } } catch(e){} }
+        async function toggleShuffle(){ try { const btn=document.getElementById('shuffleBtn'); const newState=!btn.classList.contains('active'); const r=await api(`/me/player/shuffle?state=${newState}`,{method:'PUT'}); if(r){ btn.classList.toggle('active',newState); /* Status updated by player_state_changed */ } } catch(e){} }
         const repStates=['off','context','track']; let repIdx=0;
-        async function toggleRepeat(){ try { repIdx=(repIdx+1)%3; const newState=repStates[repIdx]; const r=await api(`/me/player/repeat?state=${newState}`,{method:'PUT'}); if(r){ document.getElementById('repeatBtn').classList.toggle('active',newState!=='off'); status(`🔁 Repeat ${newState}`); } } catch(e){} }
+        async function toggleRepeat(){ try { repIdx=(repIdx+1)%3; const newState=repStates[repIdx]; const r=await api(`/me/player/repeat?state=${newState}`,{method:'PUT'}); if(r){ document.getElementById('repeatBtn').classList.toggle('active',newState!=='off'); /* Status updated by player_state_changed */ } } catch(e){} }
 
         // Global Unhandled Rejection Handler (Unchanged)
         window.addEventListener('unhandledrejection',e=>{ if(e.reason&&e.reason.name==='CloudPlaybackClientError'){ e.preventDefault(); console.warn('Ignored CloudPlaybackClientError:',e.reason.message); }else{ console.error("Unhandled Rejection:",e.reason||e); status("⚠️ Unexpected error."); } });
