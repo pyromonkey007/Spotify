@@ -16,7 +16,6 @@
       background:var(--bg); color:var(--fg);
       display:flex; flex-direction:column; height:100vh; overflow:hidden;
     }
-    /* blurred background + neon fallback */
     body::before {
       content:''; position:fixed; top:0; left:0; width:100%; height:100%;
       background-image: var(--bg-image), radial-gradient(circle at top left, var(--accent), #000);
@@ -34,47 +33,47 @@
     }
     #status{text-align:center;margin-bottom:.5rem;}
     #login{
-      align-self:center; background:var(--accent); color:var(--bg);
-      border:none; padding:.75rem 1.5rem; border-radius:4px;
-      cursor:pointer; text-transform:uppercase; font-weight:bold;
+      align-self:center;background:var(--accent);color:var(--bg);
+      border:none;padding:.75rem 1.5rem;border-radius:4px;
+      cursor:pointer;text-transform:uppercase;font-weight:bold;
       box-shadow:0 0 12px var(--accent);
     }
     #controls{
-      display:flex; justify-content:center; flex-wrap:wrap; gap:.5rem;
-      padding:.75rem; background:rgba(0,0,0,0.5);
-      margin:.5rem 1rem; border-radius:6px;
+      display:flex;justify-content:center;flex-wrap:wrap;gap:.5rem;
+      padding:.75rem;background:rgba(0,0,0,0.5);
+      margin:.5rem 1rem;border-radius:6px;
       box-shadow:0 0 12px var(--accent);
     }
     #controls button{
-      background:var(--accent-dim); border:1px solid var(--accent);
-      color:var(--fg); padding:.5rem 1rem; border-radius:4px;
-      cursor:pointer; transition:transform .2s,background .2s;
+      background:var(--accent-dim);border:1px solid var(--accent);
+      color:var(--fg);padding:.5rem 1rem;border-radius:4px;
+      cursor:pointer;transition:transform .2s,background .2s;
     }
     #controls button.active{
-      background:var(--accent); color:var(--fg);
+      background:var(--accent);color:var(--fg);
       box-shadow:0 0 12px var(--accent);
     }
     #controls button:hover{transform:scale(1.1);}
     #nowPlaying{
-      display:flex; align-items:center; gap:1rem;
-      padding:1rem; background:rgba(0,0,0,0.6);
-      margin:0 1rem .5rem; border-radius:6px;
+      display:flex;align-items:center;gap:1rem;
+      padding:1rem;background:rgba(0,0,0,0.6);
+      margin:0 1rem .5rem;border-radius:6px;
       box-shadow:0 0 12px var(--accent);
     }
     #nowPlaying img{
-      width:80px; height:80px; border-radius:4px;
+      width:80px;height:80px;border-radius:4px;
       box-shadow:0 0 12px var(--accent);
     }
     #nowInfo{display:flex;flex-direction:column;}
     #nowInfo div{margin:.25rem 0;}
     .container{
-      display:grid; grid-template-columns:1fr 2fr;
-      flex:1; overflow:hidden; gap:1rem;
+      display:grid;grid-template-columns:1fr 2fr;
+      flex:1;overflow:hidden;gap:1rem;
       padding:0 1rem 1rem;
     }
     #playlistSection,#trackSection{
-      background:rgba(0,0,0,0.5); border-radius:6px;
-      overflow-y:auto; padding:1rem;
+      background:rgba(0,0,0,0.5);border-radius:6px;
+      overflow-y:auto;padding:1rem;
       box-shadow:0 0 12px var(--accent);
     }
     #playlistSection ul,#trackSection ul{list-style:none;}
@@ -92,7 +91,7 @@
     #playlistSection li.selected,
     #trackSection li.playing {
       background:var(--accent)!important;
-      color: var(--fg)!important;
+      color:var(--fg)!important;
       animation:glow 1.5s infinite;
     }
     #playlistSection img{
@@ -162,10 +161,10 @@
     let access_token, player, currentPlaylistId, playlistItems = [];
 
     function randStr(len) {
-      const c = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-      let s = '', a = new Uint8Array(len);
+      const c='ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+      let s='', a=new Uint8Array(len);
       crypto.getRandomValues(a);
-      a.forEach(i=>s+=c[i% c.length]);
+      a.forEach(i=>s+=c[i%c.length]);
       return s;
     }
     function b64url(b) {
@@ -177,7 +176,7 @@
     }
     function api(path, opts={}) {
       opts.headers = { ...(opts.headers||{}), 'Authorization':'Bearer '+access_token };
-      return fetch('https://api.spotify.com/v1'+path, opts).then(r=>r.json());
+      return fetch('https://api.spotify.com/v1'+path, opts).then(r=>r.ok ? r.json() : {});
     }
     function status(msg) { document.getElementById('status').textContent = msg; }
 
@@ -211,9 +210,11 @@
       });
       const tok = await fetch('https://accounts.spotify.com/api/token',{
         method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body
-      }).then(r=>r.json());
+      }).then(r=>r.ok ? r.json() : {});
       if (!tok.access_token) {
-        status('❌ Token failed'); console.error(tok); return;
+        status('❌ Token failed');
+        console.error(tok);
+        return;
       }
       access_token = tok.access_token;
       history.replaceState(null,'',redirect_uri);
@@ -225,17 +226,16 @@
       ['prevBtn','playPauseBtn','nextBtn','shuffleBtn','repeatBtn']
         .forEach(id=>document.getElementById(id).disabled=false);
 
-      document.getElementById('prevBtn').onclick      = ()=>player.previousTrack();
-      document.getElementById('nextBtn').onclick      = ()=>player.nextTrack();
-      document.getElementById('playPauseBtn').onclick = ()=>player.togglePlay();
+      document.getElementById('prevBtn').onclick      = ()=>player.previousTrack().catch(()=>{});
+      document.getElementById('nextBtn').onclick      = ()=>player.nextTrack().catch(()=>{});
+      document.getElementById('playPauseBtn').onclick = ()=>player.togglePlay().catch(()=>{});
       document.getElementById('shuffleBtn').onclick   = toggleShuffle;
       document.getElementById('repeatBtn').onclick    = toggleRepeat;
       document.getElementById('sortSelect').onchange  = renderTracks;
 
-      // clear once, then load your library + Made for You
       document.getElementById('playlists').innerHTML = '';
       await loadPlaylists();
-      try { await loadFeaturedPlaylists(); } catch(e) { console.warn(e); }
+      await loadFeaturedPlaylists();
       loadSDK();
     }
 
@@ -247,6 +247,7 @@
         const res  = await fetch(nextUrl, {
           headers: { 'Authorization':'Bearer '+access_token }
         });
+        if (!res.ok) break;
         const data = await res.json();
         all.push(...data.items);
         nextUrl = data.next;
@@ -264,30 +265,34 @@
     }
 
     async function loadFeaturedPlaylists() {
-      // correct endpoint with country param
-      const data = await api('/browse/featured-playlists?limit=20&country=US');
-      const ul   = document.getElementById('playlists');
-      const sep  = document.createElement('li');
-      sep.textContent = '— Made for You —';
-      sep.style.textAlign = 'center';
-      sep.style.margin = '0.5rem 0';
-      ul.appendChild(sep);
-      data.playlists.items.forEach(pl => {
-        const li = document.createElement('li');
-        li.dataset.id = pl.id;
-        const img = document.createElement('img');
-        img.src = pl.images[0]?.url || '';
-        li.appendChild(img);
-        li.appendChild(document.createTextNode(pl.name));
-        li.onclick = () => loadTracks(pl.id);
-        ul.appendChild(li);
-      });
+      try {
+        const data = await api('/browse/featured-playlists?limit=20&country=US');
+        if (!data.playlists?.items) return;
+        const ul  = document.getElementById('playlists');
+        const sep = document.createElement('li');
+        sep.textContent = '— Made for You —';
+        sep.style.textAlign = 'center';
+        sep.style.margin = '0.5rem 0';
+        ul.appendChild(sep);
+        data.playlists.items.forEach(pl => {
+          const li = document.createElement('li');
+          li.dataset.id = pl.id;
+          const img = document.createElement('img');
+          img.src = pl.images[0]?.url || '';
+          li.appendChild(img);
+          li.appendChild(document.createTextNode(pl.name));
+          li.onclick = () => loadTracks(pl.id);
+          ul.appendChild(li);
+        });
+      } catch (e) {
+        console.warn('Could not load Featured Playlists:', e);
+      }
     }
 
     async function loadTracks(id) {
       currentPlaylistId = id;
       document.querySelectorAll('#playlists li').forEach(li =>
-        li.classList.toggle('selected', li.dataset.id === id)
+        li.classList.toggle('selected', li.dataset.id===id)
       );
       const data = await api(`/playlists/${id}/tracks?limit=100`);
       playlistItems = data.items.map(i => ({ track:i.track, added_at:i.added_at }));
@@ -314,12 +319,13 @@
     function playTrack(uri) {
       const idx = playlistItems.findIndex(o=>o.track.uri===uri);
       api('/me/player/play',{method:'PUT',body:JSON.stringify({
-        context_uri:`spotify:playlist:${currentPlaylistId}`, offset:{position:idx}
+        context_uri:`spotify:playlist:${currentPlaylistId}`,
+        offset:{position:idx}
       })});
     }
 
-    function loadSDK(){
-      if(!window.Spotify){
+    function loadSDK() {
+      if (!window.Spotify) {
         const s = document.createElement('script');
         s.src = 'https://sdk.scdn.co/spotify-player.js';
         document.head.appendChild(s);
@@ -330,28 +336,18 @@
           getOAuthToken: cb => cb(access_token)
         });
 
-        +      // ─── Error listeners ─────────────────────────────────────────
-      player.addListener('initialization_error', ({ message }) => {
-        console.warn('Spotify SDK init error:', message);
-      });
-      player.addListener('authentication_error', ({ message }) => {
-        console.warn('Spotify SDK auth error:', message);
-      });
-      player.addListener('account_error', ({ message }) => {
-        console.warn('Spotify SDK account error:', message);
-      });
-      player.addListener('playback_error', ({ message }) => {
-        console.warn('Spotify SDK playback error (ignored):', message);
-      });
-      // ─────────────────────────────────────────────────────────────
-  
+        // swallow SDK errors
+        ['initialization_error','authentication_error','account_error','playback_error']
+          .forEach(evt => player.addListener(evt, ({message}) => console.warn(`SDK ${evt}:`,message)));
+
         player.addListener('ready', ({device_id}) => {
           api('/me/player',{method:'PUT',body:JSON.stringify({device_ids:[device_id]})});
           status('🎧 Device Ready');
         });
+
         player.addListener('player_state_changed', async st => {
-          if(!st) return;
-          if(st.paused) player.resume();
+          if (!st) return;
+          if (st.paused) player.resume();
           const t = st.track_window.current_track,
                 next = st.track_window.next_tracks[0];
           document.getElementById('trackArt').src = t.album.images[0]?.url;
@@ -359,46 +355,32 @@
           document.getElementById('trackInfo').textContent =
             `${t.name} — ${t.artists.map(a=>a.name).join(', ')}`;
           document.getElementById('nextTrack').textContent =
-            next ? 'Next ➜ '+next.name : '';
+            next ? `Next ➜ ${next.name}` : '';
           document.querySelectorAll('#tracks li').forEach(li =>
             li.classList.toggle('playing', li.dataset.uri===t.uri)
           );
-          await updateShuffleRepeat();
+          await updateShuffleRepeat().catch(()=>{});
         });
-        +      player.connect().catch(err => {
-        // in the very rare case connect itself fails
-        console.error('Player connect failed:', err);
-      });
 
-      // ─── Wrap your control buttons so errors never escape ───
-      document.getElementById('prevBtn').onclick = () =>
-        player.previousTrack().catch(e => console.warn('PrevTrack error ignored:', e));
-
-      document.getElementById('playPauseBtn').onclick = () =>
-        player.togglePlay().catch(e => console.warn('TogglePlay error ignored:', e));
-
-      document.getElementById('nextBtn').onclick = () =>
-        player.nextTrack().catch(e => console.warn('NextTrack error ignored:', e));
-
+        player.connect().catch(()=>{});
       };
     }
 
-    async function updateShuffleRepeat(){
+    async function updateShuffleRepeat() {
       const st = await api('/me/player');
       document.getElementById('shuffleBtn').classList.toggle('active', st.shuffle_state);
       document.getElementById('repeatBtn').classList.toggle('active', st.repeat_state!=='off');
     }
-
-    async function toggleShuffle(){
+    async function toggleShuffle() {
       const st = await api('/me/player');
-      await api(`/me/player/shuffle?state=${!st.shuffle_state}`, {method:'PUT'});
-      updateShuffleRepeat();
+      await api(`/me/player/shuffle?state=${!st.shuffle_state}`,{method:'PUT'});
+      updateShuffleRepeat().catch(()=>{});
     }
     const repStates=['off','context','track']; let repIdx=0;
-    async function toggleRepeat(){
-      repIdx=(repIdx+1)%3;
-      await api(`/me/player/repeat?state=${repStates[repIdx]}`, {method:'PUT'});
-      updateShuffleRepeat();
+    async function toggleRepeat() {
+      repIdx = (repIdx+1)%3;
+      await api(`/me/player/repeat?state=${repStates[repIdx]}`,{method:'PUT'});
+      updateShuffleRepeat().catch(()=>{});
     }
 
     document.getElementById('login').onclick = redirectToAuth;
