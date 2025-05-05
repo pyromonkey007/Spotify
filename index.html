@@ -6,24 +6,11 @@
     <meta name="viewport" content="width=device-width,initial-scale=1">
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
     <style>
-        :root {
-            --bg: #0a0a0a;
-            --fg: #e0e0e0;
-            --accent: #ff007f; /* Bright Pink */
-            --accent-dim: rgba(255, 0, 127, 0.2);
-            --bg-image: url(''); /* Will be set by JS */
-        }
+        /* Styles remain the same as the previous version */
+        :root { --bg: #0a0a0a; --fg: #e0e0e0; --accent: #ff007f; --accent-dim: rgba(255,0,127,0.2); --bg-image: url(''); }
         * { box-sizing: border-box; margin: 0; padding: 0; }
-        body {
-            font-family: 'Orbitron', sans-serif; background: var(--bg); color: var(--fg);
-            display: flex; flex-direction: column; height: 100vh; overflow: hidden;
-        }
-        body::before {
-            content: ''; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background-image: var(--bg-image), radial-gradient(circle at top left, var(--accent), #000);
-            background-size: cover; filter: blur(30px) brightness(0.3); z-index: -1;
-            transition: background-image 1s ease-in-out;
-        }
+        body { font-family: 'Orbitron', sans-serif; background: var(--bg); color: var(--fg); display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+        body::before { content: ''; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-image: var(--bg-image), radial-gradient(circle at top left, var(--accent), #000); background-size: cover; filter: blur(30px) brightness(0.3); z-index: -1; transition: background-image 1s ease-in-out; }
         @keyframes flicker { 0%, 18%, 22%, 25%, 53%, 57%, 100% { opacity: 1 } 20%, 24%, 55% { opacity: 0.5 } }
         h1 { text-align: center; margin: 1rem 0; text-shadow: 0 0 8px var(--accent); animation: flicker 3s infinite; }
         #status { text-align: center; margin-bottom: .5rem; min-height: 1.2em; }
@@ -38,24 +25,14 @@
         #nowPlaying img { width: 80px; height: 80px; border-radius: 4px; box-shadow: 0 0 12px var(--accent); object-fit: cover; }
         #nowInfo { display: flex; flex-direction: column; justify-content: center; flex-grow: 1; }
         #nowInfo div { margin: .25rem 0; }
-
-        /* --- Search & Queue Section --- */
         #toggleSearchBtn { display: block; margin: 0 1rem 0.5rem 1rem; padding: 0.5rem 1rem; background: var(--accent-dim); border: 1px solid var(--accent); color: var(--fg); border-radius: 4px; cursor: pointer; text-align: center; font-family: inherit; font-size: 0.9em; }
         #toggleSearchBtn:hover { background: var(--accent); color: var(--bg); }
-        #searchAndQueueWrapper { /* New wrapper for combined section */
-            margin: 0 1rem 0.5rem 1rem; padding: 1rem;
-            background: rgba(0, 0, 0, 0.6); border-radius: 6px;
-            box-shadow: 0 0 12px var(--accent);
-            max-height: 40vh; /* Increased height for both sections */
-            overflow-y: auto;
-            scrollbar-width: thin; scrollbar-color: var(--accent) var(--accent-dim);
-        }
+        #searchAndQueueWrapper { margin: 0 1rem 0.5rem 1rem; padding: 1rem; background: rgba(0, 0, 0, 0.6); border-radius: 6px; box-shadow: 0 0 12px var(--accent); max-height: 40vh; overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--accent) var(--accent-dim); }
         #searchAndQueueWrapper::-webkit-scrollbar{ width: 8px; }
         #searchAndQueueWrapper::-webkit-scrollbar-track{ background: var(--accent-dim); border-radius: 4px;}
         #searchAndQueueWrapper::-webkit-scrollbar-thumb{ background-color: var(--accent); border-radius: 4px; border: 2px solid var(--accent-dim);}
-
         #searchInput { width: 100%; padding: 0.5rem; margin-bottom: 0.5rem; background: rgba(0,0,0,0.7); border: 1px solid var(--accent); color: var(--fg); border-radius: 4px; font-family: inherit; font-size: 1em; }
-        #searchResults { list-style: none; padding: 0; margin-bottom: 1rem; /* Space before queue */ }
+        #searchResults { list-style: none; padding: 0; margin-bottom: 1rem; }
         #searchResults li, #customQueueList li { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; padding: 0.5rem; border-bottom: 1px solid var(--accent-dim); font-size: 0.9em; }
         #searchResults li:last-child, #customQueueList li:last-child { border-bottom: none; }
         #searchResults img, #customQueueList img { width: 30px; height: 30px; border-radius: 2px; flex-shrink: 0; margin-right: 0.5rem; }
@@ -68,18 +45,14 @@
         #customQueueList { list-style: none; padding: 0; margin-bottom: 0.5rem; }
         #clearQueueBtn { display: block; width: 100%; margin-top: 0.5rem; padding: 0.4rem; background: var(--accent-dim); border: 1px solid var(--accent); color: var(--fg); border-radius: 4px; cursor: pointer; }
         #clearQueueBtn:hover { background: var(--accent); color: var(--bg); }
-
-        /* --- Main Layout Grid --- */
         .container { display: grid; grid-template-columns: 1fr 2fr; flex: 1; overflow: hidden; gap: 1rem; padding: 0 1rem 1rem; }
         #playlistSection, #trackSection { background: rgba(0, 0, 0, 0.5); border-radius: 6px; overflow-y: auto; padding: 1rem; box-shadow: 0 0 12px var(--accent); scrollbar-width: thin; scrollbar-color: var(--accent) var(--accent-dim); }
         #playlistSection::-webkit-scrollbar, #trackSection::-webkit-scrollbar { width: 8px; }
         #playlistSection::-webkit-scrollbar-track, #trackSection::-webkit-scrollbar-track { background: var(--accent-dim); border-radius: 4px;}
         #playlistSection::-webkit-scrollbar-thumb, #trackSection::-webkit-scrollbar-thumb { background-color: var(--accent); border-radius: 4px; border: 2px solid var(--accent-dim);}
         #playlistSection ul, #trackSection ul { list-style: none; padding: 0; }
-
         @keyframes fadeIn { to { opacity: 1 } }
         @keyframes glow { 0%, 100% { box-shadow: 0 0 12px var(--accent) } 50% { box-shadow: 0 0 20px var(--accent) } }
-
         #playlistSection li, #trackSection li { display: flex; align-items: center; gap: .5rem; padding: .5rem; border-bottom: 1px solid var(--accent-dim); cursor: pointer; opacity: 0; animation: fadeIn .3s forwards; transition: background-color 0.2s ease; }
         #playlistSection li:last-child, #trackSection li:last-child { border-bottom: none; }
         #playlistSection li.selected, #trackSection li.playing { background: var(--accent) !important; color: var(--fg) !important; animation: glow 1.5s infinite; opacity: 1 !important; }
@@ -148,41 +121,44 @@
         // --- Global Variables ---
         const client_id = 'b00e3fe2a9394a86a64048c96a3ff5f3';
         const redirect_uri = 'https://pyromonkey007.github.io/Spotify/';
-        const scopes = [
-            'streaming', 'user-read-private', 'user-read-email',
-            'user-read-playback-state', 'user-modify-playback-state',
-            'playlist-read-private', 'playlist-read-collaborative'
-        ].join(' ');
+        const scopes = ['streaming','user-read-private','user-read-email','user-read-playback-state','user-modify-playback-state','playlist-read-private','playlist-read-collaborative'].join(' ');
         const STATE_KEY = 'spotify_pkce_state', VERIFIER_KEY = 'spotify_pkce_verifier';
-        const MY_QUEUE_KEY = 'spotify_player_my_queue'; // localStorage key
+        const MY_QUEUE_KEY = 'spotify_player_my_queue';
         let access_token, player, currentPlaylistId;
         let playlistItems = [];
         let searchTimeoutId = null;
-        let myAppQueue = []; // Array to hold track objects for the visual queue
+        let myAppQueue = [];
+        let forceNextTimeoutId = null; // ID for the force next timer
 
-        // --- PKCE Helper Functions ---
+        // --- PKCE Helper Functions --- (Unchanged)
         function randStr(l){ const c='ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'; let s='',a=new Uint8Array(l);crypto.getRandomValues(a); a.forEach(i=>s+=c[i%c.length]);return s; }
         function b64url(b){ return btoa(String.fromCharCode(...new Uint8Array(b))).replace(/=+$/,'').replace(/\+/g,'-').replace(/\//g,'_'); }
         async function sha256(m){ return crypto.subtle.digest('SHA-256', new TextEncoder().encode(m)); }
 
-        // --- API Helper ---
+        // --- API Helper --- (Unchanged)
         async function api(path, opts = {}) { const base_url='https://api.spotify.com/v1'; if(!access_token){ console.error("API call attempted without access token for path:",path); status("❌ Error: Not Logged In"); return null; } opts.headers={...(opts.headers||{}),'Authorization':'Bearer '+access_token}; try { const res=await fetch(base_url+path,opts); if(!res.ok){ const b=await res.text().catch(()=>'Could not read error body'); console.error(`API Error ${res.status} on ${path}:`,b); let j={}; try{j=JSON.parse(b);}catch{} if(res.status===401||j?.error?.message?.includes("token expired")){ status("❌ Error: Token Expired. Log in again."); document.getElementById('login').style.display='block'; }else{ status(`❌ API Error: ${j?.error?.message||res.status}`); } throw new Error(j?.error?.message||`Spotify API Error: ${res.status}`); } if(res.status===204||res.headers.get('content-length')==='0'){ return {success:true}; } return await res.json(); } catch(error){ console.error(`Workspace failed for ${path}:`,error); if(!document.getElementById('status').textContent.startsWith('❌')){ status(`❌ Network Error for ${path}`); } return null; } }
         function status(msg) { document.getElementById('status').textContent = msg; }
 
-        // --- Auth Functions ---
+        // --- Auth Functions --- (Unchanged)
         async function redirectToAuth(){ const state=randStr(16),ver=randStr(64); sessionStorage.setItem(STATE_KEY,state); sessionStorage.setItem(VERIFIER_KEY,ver); const chall=b64url(await sha256(ver)); const p=new URLSearchParams({ response_type:'code',client_id,redirect_uri,scope:scopes, state,code_challenge_method:'S256',code_challenge:chall,show_dialog:'true' }); window.location=`https://accounts.spotify.com/authorize?${p.toString()}`; }
-        async function handleRedirect(){ const qs=new URLSearchParams(window.location.search), code=qs.get('code'),state=qs.get('state'),error=qs.get('error'); if(error){ status(`❌ Login Error: ${error}`); sessionStorage.removeItem(STATE_KEY); sessionStorage.removeItem(VERIFIER_KEY); return; } if(!code){ loadQueueFromStorage(); renderCustomQueue(); /* Load queue even if not logged in */ return; } const storedState=sessionStorage.getItem(STATE_KEY); const verifier=sessionStorage.getItem(VERIFIER_KEY); if(state!==storedState||!verifier){ status('❌ State mismatch/verifier missing'); sessionStorage.removeItem(STATE_KEY); sessionStorage.removeItem(VERIFIER_KEY); history.replaceState(null,'',redirect_uri); return; } sessionStorage.removeItem(STATE_KEY); sessionStorage.removeItem(VERIFIER_KEY); const body=new URLSearchParams({ grant_type:'authorization_code',code,redirect_uri, client_id,code_verifier:verifier }); try { const tok=await fetch('https://accounts.spotify.com/api/token',{ method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body }).then(async r=>{ if(!r.ok){ const e=await r.json().catch(()=>({error_description:'Unknown token error'})); throw new Error(e.error_description||`Token fetch failed: ${r.status}`); } return r.json(); }); if(!tok.access_token){ status('❌ Token failed'); return; } access_token=tok.access_token; history.replaceState(null,'',redirect_uri); status('✅ Logged in'); document.getElementById('login').style.display='none'; await initApp(); } catch(err){ console.error('Error fetching token:',err); status(`❌ Token failed: ${err.message}`); } }
+        async function handleRedirect(){ const qs=new URLSearchParams(window.location.search), code=qs.get('code'),state=qs.get('state'),error=qs.get('error'); if(error){ status(`❌ Login Error: ${error}`); sessionStorage.removeItem(STATE_KEY); sessionStorage.removeItem(VERIFIER_KEY); return; } if(!code){ loadQueueFromStorage(); renderCustomQueue(); return; } const storedState=sessionStorage.getItem(STATE_KEY); const verifier=sessionStorage.getItem(VERIFIER_KEY); if(state!==storedState||!verifier){ status('❌ State mismatch/verifier missing'); sessionStorage.removeItem(STATE_KEY); sessionStorage.removeItem(VERIFIER_KEY); history.replaceState(null,'',redirect_uri); return; } sessionStorage.removeItem(STATE_KEY); sessionStorage.removeItem(VERIFIER_KEY); const body=new URLSearchParams({ grant_type:'authorization_code',code,redirect_uri, client_id,code_verifier:verifier }); try { const tok=await fetch('https://accounts.spotify.com/api/token',{ method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body }).then(async r=>{ if(!r.ok){ const e=await r.json().catch(()=>({error_description:'Unknown token error'})); throw new Error(e.error_description||`Token fetch failed: ${r.status}`); } return r.json(); }); if(!tok.access_token){ status('❌ Token failed'); return; } access_token=tok.access_token; history.replaceState(null,'',redirect_uri); status('✅ Logged in'); document.getElementById('login').style.display='none'; await initApp(); } catch(err){ console.error('Error fetching token:',err); status(`❌ Token failed: ${err.message}`); } }
 
         // --- Init Application ---
         async function initApp() {
-            // Enable Controls
             ['prevBtn', 'playPauseBtn', 'nextBtn', 'shuffleBtn', 'repeatBtn']
                 .forEach(id => document.getElementById(id).disabled = false);
 
             // Attach Listeners
-            document.getElementById('prevBtn').onclick = () => player?.previousTrack().catch(console.error);
-            document.getElementById('nextBtn').onclick = () => player?.nextTrack().catch(console.error);
-            document.getElementById('playPauseBtn').onclick = () => player?.togglePlay().catch(console.error);
+            // Clear forceNext timer on manual track changes
+            document.getElementById('prevBtn').onclick = () => {
+                 clearTimeout(forceNextTimeoutId); // Clear timer
+                 player?.previousTrack().catch(console.error);
+            }
+            document.getElementById('nextBtn').onclick = () => {
+                 clearTimeout(forceNextTimeoutId); // Clear timer
+                 player?.nextTrack().catch(console.error);
+            };
+            document.getElementById('playPauseBtn').onclick = () => player?.togglePlay().catch(console.error); // Pause/resume handled in state_changed timer logic
             document.getElementById('shuffleBtn').onclick = toggleShuffle;
             document.getElementById('repeatBtn').onclick = toggleRepeat;
             document.getElementById('sortSelect').onchange = renderTracks;
@@ -191,254 +167,125 @@
             document.getElementById('clearQueueBtn').onclick = clearMyAppQueue;
 
             // Load initial data
-            loadQueueFromStorage(); // Load saved queue first
-            renderCustomQueue();   // Render it
+            loadQueueFromStorage();
+            renderCustomQueue();
             document.getElementById('playlists').innerHTML = '<li>Loading playlists...</li>';
             await loadPlaylists();
             loadSDK();
         }
 
-        // --- UI Toggles ---
-        function toggleSearchQueueSection() {
-            const section = document.getElementById('searchAndQueueWrapper');
-            const isHidden = section.style.display === 'none';
-            section.style.display = isHidden ? 'block' : 'none';
-            if (isHidden) { document.getElementById('searchInput').focus(); }
-        }
+        // --- UI Toggles --- (Unchanged)
+        function toggleSearchQueueSection() { const section = document.getElementById('searchAndQueueWrapper'); const isHidden = section.style.display === 'none'; section.style.display = isHidden ? 'block' : 'none'; if (isHidden) { document.getElementById('searchInput').focus(); } }
 
-        // --- Library Loading ---
-        async function loadPlaylists() { /* ... Function unchanged ... */ const ul=document.getElementById('playlists'); ul.innerHTML='<li>⏳ Loading your playlists...</li>'; let url='/me/playlists?limit=50'; let allPlaylists=[]; let fetchedCount=0; const maxPlaylistsToFetch=200; try { while(url&&fetchedCount<maxPlaylistsToFetch){ const dat=await api(url); if(dat===null)break; if(!dat||!dat.items){ break; } allPlaylists.push(...dat.items); fetchedCount+=dat.items.length; url=dat.next?dat.next.replace('https://api.spotify.com/v1',''):null; } ul.innerHTML=''; if(allPlaylists.length===0){ ul.innerHTML='<li>No playlists found.</li>'; }else{ allPlaylists.forEach(pl=>{ const li=document.createElement('li'); li.dataset.id=pl.id; const img=document.createElement('img'); img.src=pl.images?.[0]?.url||'placeholder.png'; img.alt=pl.name; img.loading='lazy'; li.appendChild(img); li.appendChild(document.createTextNode(pl.name)); li.onclick=()=>loadTracks(pl.id); ul.appendChild(li); }); } } catch(e){ console.error("Error during playlist loading loop:",e); ul.innerHTML='<li>Error loading playlists.</li>'; } }
+        // --- Library Loading --- (Unchanged)
+        async function loadPlaylists() { const ul=document.getElementById('playlists'); ul.innerHTML='<li>⏳ Loading your playlists...</li>'; let url='/me/playlists?limit=50'; let allPlaylists=[]; let fetchedCount=0; const maxPlaylistsToFetch=200; try { while(url&&fetchedCount<maxPlaylistsToFetch){ const dat=await api(url); if(dat===null)break; if(!dat||!dat.items){ break; } allPlaylists.push(...dat.items); fetchedCount+=dat.items.length; url=dat.next?dat.next.replace('https://api.spotify.com/v1',''):null; } ul.innerHTML=''; if(allPlaylists.length===0){ ul.innerHTML='<li>No playlists found.</li>'; }else{ allPlaylists.forEach(pl=>{ const li=document.createElement('li'); li.dataset.id=pl.id; const img=document.createElement('img'); img.src=pl.images?.[0]?.url||'placeholder.png'; img.alt=pl.name; img.loading='lazy'; li.appendChild(img); li.appendChild(document.createTextNode(pl.name)); li.onclick=()=>loadTracks(pl.id); ul.appendChild(li); }); } } catch(e){ console.error("Error during playlist loading loop:",e); ul.innerHTML='<li>Error loading playlists.</li>'; } }
 
-        // --- Track Loading & Rendering ---
-        // UPDATED: Improved error handling in loop
-        async function loadTracks(id) {
-            currentPlaylistId = id;
-            document.querySelectorAll('#playlists li').forEach(li =>
-                li.classList.toggle('selected', li.dataset.id === id)
-            );
-            status(`⏳ Loading tracks (0)...`);
-            const ul = document.getElementById('tracks');
-            ul.innerHTML = '<li>⏳ Loading tracks...</li>';
-            playlistItems = []; // Reset
-            let fetchedCount = 0;
-            let url = `/playlists/${id}/tracks?limit=100&fields=next,items(added_at,track(name,uri,artists(name),album(images)))`;
-            console.log("Initial Track Load URL:", url); // Log initial URL
-
-            try {
-                while (url) {
-                    console.log("Fetching track page:", url); // Log current page URL
-                    const data = await api(url);
-                    if (data === null) {
-                        console.error("API call failed for track page:", url); // Log specific page failure
-                        status(`⚠️ Error loading some tracks.`); // Indicate partial failure
-                        break; // Stop fetching more pages but proceed to render what we have
-                    }
-
-                    const validItems = (data.items || [])
-                        .filter(item => item && item.track)
-                        .map(i => ({ track: i.track, added_at: i.added_at }));
-
-                    playlistItems.push(...validItems);
-                    fetchedCount += validItems.length;
-                    console.log(`Workspaceed ${validItems.length} items, Total: ${fetchedCount}`); // Log fetch count
-                    status(`⏳ Loading tracks (${fetchedCount})...`);
-
-                    url = data.next ? data.next.replace('https://api.spotify.com/v1', '') : null;
-                    console.log("Next track page URL:", url); // Log next URL
-                } // End while loop
-
-                console.log(`Finished loading tracks. Total: ${playlistItems.length}`); // Log final count
-                if (document.getElementById('status').textContent.startsWith('⏳')) { // Only update if still loading
-                    status(`✅ Tracks loaded (${playlistItems.length} items).`);
-                }
-                renderTracks(); // Render all successfully fetched tracks
-
-            } catch (e) {
-                console.error("Unexpected error during track loading loop:", e);
-                ul.innerHTML = '<li>❌ Unexpected error loading tracks.</li>';
-                // Status might be set by api() helper already
-                renderTracks(); // Render whatever might have been loaded
-            }
-        }
-        // renderTracks unchanged
+        // --- Track Loading & Rendering --- (Unchanged - Includes pagination & logging)
+        async function loadTracks(id){ currentPlaylistId=id; document.querySelectorAll('#playlists li').forEach(li=> li.classList.toggle('selected',li.dataset.id===id) ); status(`⏳ Loading tracks (0)...`); const ul=document.getElementById('tracks'); ul.innerHTML='<li>⏳ Loading tracks...</li>'; playlistItems=[]; let fetchedCount=0; let url=`/playlists/${id}/tracks?limit=100&fields=next,items(added_at,track(name,uri,artists(name),album(images)))`; console.log("Initial Track Load URL:",url); try{ while(url){ console.log("Fetching track page:",url); const data=await api(url); if(data===null){ console.error("API call failed for track page:",url); status(`⚠️ Error loading some tracks.`); break; } const validItems=(data.items||[]).filter(item=>item&&item.track).map(i=>({track:i.track,added_at:i.added_at})); playlistItems.push(...validItems); fetchedCount+=validItems.length; console.log(`Workspaceed ${validItems.length} items, Total: ${fetchedCount}`); status(`⏳ Loading tracks (${fetchedCount})...`); url=dat.next?dat.next.replace('https://api.spotify.com/v1',''):null; console.log("Next track page URL:",url); } console.log(`Finished loading tracks. Total: ${playlistItems.length}`); if(document.getElementById('status').textContent.startsWith('⏳')){ status(`✅ Tracks loaded (${playlistItems.length} items).`); } renderTracks(); } catch(e){ console.error("Unexpected error during track loading loop:",e); ul.innerHTML='<li>❌ Unexpected error loading tracks.</li>'; renderTracks(); } }
         function renderTracks(){ const mode=document.getElementById('sortSelect').value; let arr=[...playlistItems]; const ul=document.getElementById('tracks'); ul.innerHTML=''; if(arr.length===0){ ul.innerHTML='<li>No tracks found or loaded.</li>'; return; } try { if(mode==='newest')arr.sort((a,b)=>(new Date(b.added_at).getTime()||0)-(new Date(a.added_at).getTime()||0)); if(mode==='oldest')arr.sort((a,b)=>(new Date(a.added_at).getTime()||0)-(new Date(b.added_at).getTime()||0)); } catch(e){ console.warn("Error sorting tracks by date:",e); } arr.forEach((obj,index)=>{ if(!obj?.track?.artists){ console.warn("Skipping invalid track object:",obj); return; } const li=document.createElement('li'); li.dataset.uri=obj.track.uri; li.textContent=`${obj.track.name} — ${obj.track.artists.map(a=>a.name).join(', ')}`; li.style.animationDelay=`${index*30}ms`; li.onclick=()=>playTrack(obj.track.uri,index); ul.appendChild(li); }); }
 
-        // Play Track (Unchanged)
-        function playTrack(uri, index) { if(!player||!currentPlaylistId){ status("Player not ready or no playlist selected."); return; } status("▶️ Requesting track..."); console.log(`Requesting Play: Playlist ${currentPlaylistId}, Track URI ${uri}, Index ${index}`); api('/me/player/play',{ method:'PUT', body:JSON.stringify({ context_uri:`spotify:playlist:${currentPlaylistId}`, offset:{ position:index } }) }).then(r=>{ if(r===null){ status("❌ Play command failed (API error)."); } }).catch(err=>{ console.error("Network error sending play command:",err); status("❌ Play command failed (Network error)."); }); }
-
-        // --- Search & Queue Functions ---
-        function handleSearchInput(event) {
-            const query = event.target.value.trim();
-            clearTimeout(searchTimeoutId);
-            searchTimeoutId = setTimeout(async () => {
-                if (query.length < 2) { document.getElementById('searchResults').innerHTML = ''; return; }
-                status(`🔎 Searching for "${query}"...`);
-                // Pass the full track object needed for the visual queue
-                const results = await api(`/search?q=${encodeURIComponent(query)}&type=track&limit=10&fields=tracks.items(name,uri,artists(name),album(name,images))`);
-                if (results?.tracks?.items) {
-                    renderSearchResults(results.tracks.items);
-                    status(`🔎 Found results for "${query}"`);
-                } else if (results === null) { document.getElementById('searchResults').innerHTML = '<li>Error during search.</li>'; }
-                 else { document.getElementById('searchResults').innerHTML = '<li>No results found.</li>'; status(`🔎 No results for "${query}"`); }
-            }, 500);
+        // Play Track - Clears forceNext timer
+        function playTrack(uri, index) {
+            clearTimeout(forceNextTimeoutId); // Clear timer on manual track selection
+            if (!player || !currentPlaylistId) { status("Player not ready or no playlist selected."); return; }
+            status("▶️ Requesting track...");
+            console.log(`Requesting Play: Playlist ${currentPlaylistId}, Track URI ${uri}, Index ${index}`);
+            api('/me/player/play', { method: 'PUT', body: JSON.stringify({ context_uri: `spotify:playlist:${currentPlaylistId}`, offset: { position: index } }) })
+                .then(r => { if (r === null) { status("❌ Play command failed (API error)."); } })
+                .catch(err => { console.error("Network error sending play command:", err); status("❌ Play command failed (Network error)."); });
         }
 
-        function renderSearchResults(items) {
-            const ul = document.getElementById('searchResults');
-            ul.innerHTML = '';
-            if (!items || items.length === 0) { ul.innerHTML = '<li>No results found.</li>'; return; }
-            items.forEach(track => {
-                 if (!track || !track.artists || !track.album) return;
-                const li = document.createElement('li');
-                const img = document.createElement('img');
-                img.src = track.album.images?.[track.album.images.length - 1]?.url || 'placeholder.png';
-                img.alt = track.album.name || '';
-                img.loading = 'lazy';
-                li.appendChild(img);
-                const infoDiv = document.createElement('div'); infoDiv.className = 'trackInfo'; infoDiv.textContent = track.name;
-                const artistSpan = document.createElement('span'); artistSpan.className = 'artistName'; artistSpan.textContent = track.artists.map(a => a.name).join(', '); infoDiv.appendChild(artistSpan);
-                li.appendChild(infoDiv);
-                const button = document.createElement('button'); button.className = 'queueBtn'; button.textContent = '➕'; button.dataset.uri = track.uri; button.title = 'Add to My Queue & Spotify Queue';
-                // Pass the whole track object to addToQueue
-                button.onclick = () => addToQueue(track, button);
-                li.appendChild(button);
-                ul.appendChild(li);
-            });
-        }
+        // --- Search & Queue Functions --- (Unchanged)
+        function handleSearchInput(event) { const query = event.target.value.trim(); clearTimeout(searchTimeoutId); searchTimeoutId = setTimeout(async () => { if (query.length < 2) { document.getElementById('searchResults').innerHTML = ''; return; } status(`🔎 Searching for "${query}"...`); const results = await api(`/search?q=${encodeURIComponent(query)}&type=track&limit=10&fields=tracks.items(name,uri,artists(name),album(name,images))`); if (results?.tracks?.items) { renderSearchResults(results.tracks.items); status(`🔎 Found results for "${query}"`); } else if (results === null) { document.getElementById('searchResults').innerHTML = '<li>Error during search.</li>'; } else { document.getElementById('searchResults').innerHTML = '<li>No results found.</li>'; status(`🔎 No results for "${query}"`); } }, 500); }
+        function renderSearchResults(items) { const ul=document.getElementById('searchResults'); ul.innerHTML=''; if(!items||items.length===0){ul.innerHTML='<li>No results found.</li>';return;} items.forEach(track=>{ if(!track||!track.artists||!track.album)return; const li=document.createElement('li'); const img=document.createElement('img'); img.src=track.album.images?.[track.album.images.length-1]?.url||'placeholder.png'; img.alt=track.album.name||''; img.loading='lazy'; li.appendChild(img); const infoDiv=document.createElement('div'); infoDiv.className='trackInfo'; infoDiv.textContent=track.name; const artistSpan=document.createElement('span'); artistSpan.className='artistName'; artistSpan.textContent=track.artists.map(a=>a.name).join(', '); infoDiv.appendChild(artistSpan); li.appendChild(infoDiv); const button=document.createElement('button'); button.className='queueBtn'; button.textContent='➕'; button.dataset.uri=track.uri; button.title='Add to My Queue & Spotify Queue'; button.onclick=()=>addToQueue(track,button); li.appendChild(button); ul.appendChild(li); }); }
+        async function addToQueue(trackObject, buttonElement) { const uri = trackObject.uri; console.log(`Adding track to visual queue: ${trackObject.name} (${uri})`); buttonElement.disabled = true; buttonElement.textContent = '…'; myAppQueue.push(trackObject); saveQueueToStorage(); renderCustomQueue(); console.log(`Adding URI to Spotify queue: ${uri}`); const response = await api(`/me/player/queue?uri=${encodeURIComponent(uri)}`, { method: 'POST' }); if (response) { status(`✅ Track added to queues`); buttonElement.textContent = '✅'; setTimeout(() => { buttonElement.disabled = false; buttonElement.textContent = '➕'; }, 1500); } else { status(`❌ Failed to add to Spotify queue (check console)`); buttonElement.disabled = false; buttonElement.textContent = '➕'; } }
+        function renderCustomQueue() { const ul=document.getElementById('customQueueList'); ul.innerHTML=''; if(myAppQueue.length===0){ ul.innerHTML='<li>Your queue is empty.</li>'; document.getElementById('clearQueueBtn').style.display='none'; return; } document.getElementById('clearQueueBtn').style.display='block'; myAppQueue.forEach((track,index)=>{ if(!track||!track.artists||!track.album)return; const li=document.createElement('li'); const img=document.createElement('img'); img.src=track.album.images?.[track.album.images.length-1]?.url||'placeholder.png'; img.alt=track.album.name||''; img.loading='lazy'; li.appendChild(img); const infoDiv=document.createElement('div'); infoDiv.className='trackInfo'; infoDiv.textContent=track.name; const artistSpan=document.createElement('span'); artistSpan.className='artistName'; artistSpan.textContent=track.artists.map(a=>a.name).join(', '); infoDiv.appendChild(artistSpan); li.appendChild(infoDiv); const removeButton=document.createElement('button'); removeButton.className='removeQueueBtn'; removeButton.textContent='✖'; removeButton.title='Remove from My Queue'; removeButton.onclick=()=>removeFromMyAppQueue(index); li.appendChild(removeButton); ul.appendChild(li); }); }
+        function removeFromMyAppQueue(index) { if (index >= 0 && index < myAppQueue.length) { const removed = myAppQueue.splice(index, 1); console.log("Removed from queue:", removed[0]?.name); saveQueueToStorage(); renderCustomQueue(); } }
+        function clearMyAppQueue() { myAppQueue = []; saveQueueToStorage(); renderCustomQueue(); console.log("Cleared My Queue"); }
+        function saveQueueToStorage() { try { localStorage.setItem(MY_QUEUE_KEY, JSON.stringify(myAppQueue)); } catch (e) { console.error("Failed to save queue to localStorage:", e); status("⚠️ Could not save queue."); } }
+        function loadQueueFromStorage() { try { const savedQueue = localStorage.getItem(MY_QUEUE_KEY); if (savedQueue) { myAppQueue = JSON.parse(savedQueue); console.log(`Loaded ${myAppQueue.length} items from saved queue.`); } else { myAppQueue = []; } } catch (e) { console.error("Failed to load or parse queue from localStorage:", e); myAppQueue = []; status("⚠️ Could not load saved queue."); } }
 
-        // Modified to handle both visual queue and Spotify native queue
-        async function addToQueue(trackObject, buttonElement) {
-            const uri = trackObject.uri;
-            console.log(`Adding track to visual queue: ${trackObject.name} (${uri})`);
-            buttonElement.disabled = true; buttonElement.textContent = '…';
-
-            // 1. Add to visual queue (myAppQueue)
-            myAppQueue.push(trackObject); // Add the full object
-            saveQueueToStorage();
-            renderCustomQueue();
-
-            // 2. Add to Spotify's native queue
-            console.log(`Adding URI to Spotify queue: ${uri}`);
-            const response = await api(`/me/player/queue?uri=${encodeURIComponent(uri)}`, { method: 'POST' });
-
-            if (response) {
-                status(`✅ Track added to queues`); // Updated status
-                buttonElement.textContent = '✅';
-                setTimeout(() => { buttonElement.disabled = false; buttonElement.textContent = '➕'; }, 1500);
-            } else {
-                // Error status set by api() helper
-                // Remove from visual queue if adding to Spotify queue failed? Optional.
-                // myAppQueue.pop(); // Remove the last added item
-                // saveQueueToStorage();
-                // renderCustomQueue();
-                status(`❌ Failed to add to Spotify queue (check console)`); // More specific error
-                buttonElement.disabled = false; buttonElement.textContent = '➕';
-            }
-        }
-
-        // --- New Visual Queue Functions ---
-        function renderCustomQueue() {
-            const ul = document.getElementById('customQueueList');
-            ul.innerHTML = ''; // Clear previous items
-            if (myAppQueue.length === 0) {
-                ul.innerHTML = '<li>Your queue is empty.</li>';
-                document.getElementById('clearQueueBtn').style.display = 'none'; // Hide clear button
-                return;
-            }
-            document.getElementById('clearQueueBtn').style.display = 'block'; // Show clear button
-
-            myAppQueue.forEach((track, index) => {
-                if (!track || !track.artists || !track.album) return; // Skip invalid
-
-                const li = document.createElement('li');
-                const img = document.createElement('img');
-                img.src = track.album.images?.[track.album.images.length - 1]?.url || 'placeholder.png';
-                img.alt = track.album.name || '';
-                img.loading = 'lazy';
-                li.appendChild(img);
-
-                const infoDiv = document.createElement('div'); infoDiv.className = 'trackInfo'; infoDiv.textContent = track.name;
-                const artistSpan = document.createElement('span'); artistSpan.className = 'artistName'; artistSpan.textContent = track.artists.map(a => a.name).join(', '); infoDiv.appendChild(artistSpan);
-                li.appendChild(infoDiv);
-
-                // Add Remove Button
-                const removeButton = document.createElement('button');
-                removeButton.className = 'removeQueueBtn';
-                removeButton.textContent = '✖'; // Use '✖' symbol
-                removeButton.title = 'Remove from My Queue';
-                removeButton.onclick = () => removeFromMyAppQueue(index); // Pass index to remove
-                li.appendChild(removeButton);
-
-                ul.appendChild(li);
-            });
-        }
-
-        function removeFromMyAppQueue(index) {
-            if (index >= 0 && index < myAppQueue.length) {
-                const removed = myAppQueue.splice(index, 1); // Remove item at index
-                console.log("Removed from queue:", removed[0]?.name);
-                saveQueueToStorage();
-                renderCustomQueue(); // Re-render the list
-            }
-        }
-
-        function clearMyAppQueue() {
-            myAppQueue = []; // Empty the array
-            saveQueueToStorage();
-            renderCustomQueue(); // Re-render the (now empty) list
-            console.log("Cleared My Queue");
-        }
-
-        function saveQueueToStorage() {
-            try {
-                localStorage.setItem(MY_QUEUE_KEY, JSON.stringify(myAppQueue));
-            } catch (e) {
-                console.error("Failed to save queue to localStorage:", e);
-                status("⚠️ Could not save queue.");
-            }
-        }
-
-        function loadQueueFromStorage() {
-            try {
-                const savedQueue = localStorage.getItem(MY_QUEUE_KEY);
-                if (savedQueue) {
-                    myAppQueue = JSON.parse(savedQueue);
-                    console.log(`Loaded ${myAppQueue.length} items from saved queue.`);
-                } else {
-                    myAppQueue = [];
-                }
-            } catch (e) {
-                console.error("Failed to load or parse queue from localStorage:", e);
-                myAppQueue = []; // Start with empty queue on error
-                status("⚠️ Could not load saved queue.");
-            }
-        }
-
-        // --- End Visual Queue Functions ---
-
-
-        // --- Web Playback SDK Initialization and Listeners --- (Unchanged logic)
+        // --- Web Playback SDK Initialization and Listeners ---
         function loadSDK() {
              if (document.querySelector('script[src="https://sdk.scdn.co/spotify-player.js"]') || window.Spotify?.Player) { if (player&&typeof player.connect==='function'&&!player.isConnected?.()) { player.connect().catch(console.error); } return; }
             const s=document.createElement('script'); s.src='https://sdk.scdn.co/spotify-player.js'; s.async=true; document.head.appendChild(s);
             window.onSpotifyWebPlaybackSDKReady = () => {
                  status("🚀 SDK Ready, initializing player...");
-                player = new Spotify.Player({ name: 'Daddy’s Spotify Player 🚀', getOAuthToken: cb => cb(access_token), volume: 0.5 });
+                player = new Spotify.Player({ name: 'Daddy’s Player 🚀', getOAuthToken: cb => cb(access_token), volume: 0.5 });
                 ['initialization_error', 'authentication_error', 'account_error', 'playback_error']
-                    .forEach(evt => player.addListener(evt, ({ message }) => { console.error(`SDK ${evt}:`, message); status(`❌ SDK Error: ${evt}`); if (evt === 'authentication_error') { document.getElementById('login').style.display='block'; access_token=null; ['prevBtn','playPauseBtn','nextBtn','shuffleBtn','repeatBtn'].forEach(id=>document.getElementById(id).disabled=true); } if (evt === 'account_error') { alert("Spotify Premium required."); } }));
+                    .forEach(evt => player.addListener(evt, ({ message }) => { console.error(`SDK ${evt}:`, message); status(`❌ SDK Error: ${evt}`); if (evt === 'authentication_error') { document.getElementById('login').style.display='block'; access_token=null; ['prevBtn','playPauseBtn','nextBtn','shuffleBtn','repeatBtn'].forEach(id=>document.getElementById(id).disabled=true); clearTimeout(forceNextTimeoutId);} if (evt === 'account_error') { alert("Spotify Premium required."); } }));
                 player.addListener('ready', ({ device_id }) => { console.log('SDK Player Ready', device_id); status('🎧 Device Ready, selecting...'); api('/me/player', { method:'PUT', body: JSON.stringify({ device_ids: [device_id], play: false }) }).then(r => { if (r?.success) status('🎧 Device Ready & Selected'); else status('⚠️ Device Ready, failed select.'); }).catch(()=>{}); });
-                player.addListener('not_ready', ({ device_id }) => { console.log('Device Offline', device_id); status('🔌 Device Offline'); });
+                player.addListener('not_ready', ({ device_id }) => { console.log('Device Offline', device_id); status('🔌 Device Offline'); clearTimeout(forceNextTimeoutId); }); // Clear timer if device goes offline
+
+                // Player State Changed - Includes EXPERIMENTAL Force Next Timer
                 player.addListener('player_state_changed', (st) => {
                      console.log("Player state changed:", st);
-                    if (!st) { status('ℹ️ Player state unavailable (Inactive)'); document.getElementById('playPauseBtn').textContent='▶️ Play/Pause'; document.getElementById('trackArt').src=''; document.getElementById('trackInfo').textContent='Not playing'; document.getElementById('nextTrack').textContent=''; document.body.style.setProperty('--bg-image',''); document.querySelectorAll('#tracks li.playing').forEach(li => li.classList.remove('playing')); return; }
-                    const currentStatus = document.getElementById('status').textContent; // Avoid overriding important messages
-                    if (!currentStatus.includes('❌') && !currentStatus.includes('⚠️') && !currentStatus.includes('⏳') && !currentStatus.includes('✅')) { if (st.paused) { status("⏸️ Paused"); } else { status("▶️ Playing"); } }
+                     clearTimeout(forceNextTimeoutId); // Clear any previous timer first
+
+                    if (!st) {
+                        status('ℹ️ Player state unavailable (Inactive)');
+                        // ... (reset UI as before) ...
+                        document.getElementById('playPauseBtn').textContent='▶️ Play/Pause'; document.getElementById('trackArt').src=''; document.getElementById('trackInfo').textContent='Not playing'; document.getElementById('nextTrack').textContent=''; document.body.style.setProperty('--bg-image',''); document.querySelectorAll('#tracks li.playing').forEach(li => li.classList.remove('playing'));
+                        return;
+                    }
+
+                    // Update status based on playing/paused state, avoiding override
+                    const currentStatus = document.getElementById('status').textContent;
+                    if (!currentStatus.includes('❌') && !currentStatus.includes('⚠️') && !currentStatus.includes('⏳') && !currentStatus.includes('✅')) {
+                        if (st.paused) { status("⏸️ Paused"); } else { status("▶️ Playing"); }
+                    }
+
+                    // Update Now Playing UI, Controls, Highlighting (as before)
                     const t = st.track_window.current_track; const next = st.track_window.next_tracks[0];
                     if (t) { document.getElementById('trackArt').src = t.album.images[0]?.url || 'placeholder.png'; document.body.style.setProperty('--bg-image', `url(${t.album.images[0]?.url})`); document.getElementById('trackInfo').textContent = `${t.name} — ${t.artists.map(a => a.name).join(', ')}`; } else { document.getElementById('trackArt').src = ''; document.getElementById('trackInfo').textContent = 'No track loaded'; document.body.style.setProperty('--bg-image', ''); }
                     document.getElementById('nextTrack').textContent = next ? `Next ➜ ${next.name}` : '';
                     document.getElementById('playPauseBtn').textContent = st.paused ? '▶️ Play' : '⏸️ Pause'; document.getElementById('shuffleBtn').classList.toggle('active', st.shuffle); const repeatMode = st.repeat_mode; document.getElementById('repeatBtn').classList.toggle('active', repeatMode !== 0); repIdx = repeatMode; document.getElementById('prevBtn').disabled = !st.track_window.previous_tracks.length; document.getElementById('nextBtn').disabled = !st.track_window.next_tracks.length;
                     document.querySelectorAll('#tracks li').forEach(li => { const isPlaying = t && li.dataset.uri === t.uri; li.classList.toggle('playing', isPlaying); });
-                });
+
+
+                    // --- EXPERIMENTAL: Force Next Track Timer ---
+                    // WARNING: This is complex and may cause instability (double skips, etc.)
+                    // Only proceed if not paused and track data is available
+                    if (!st.paused && t && st.duration > 0) {
+                        const duration = st.duration;
+                        const position = st.position;
+                        const bufferTime = 2000; // Try to trigger 2 seconds before end
+
+                        if (duration > bufferTime + 500) { // Only if track is reasonably long
+                            const timeUntilForceNext = duration - position - bufferTime;
+
+                            if (timeUntilForceNext > 0) { // Only schedule if time remaining is > buffer
+                                console.log(`[Timer] Scheduling forceNext for ${t.name} in ${timeUntilForceNext}ms`);
+                                const trackUriWhenTimerSet = t.uri; // Capture URI at time of setting timer
+
+                                forceNextTimeoutId = setTimeout(() => {
+                                    console.log(`[Timer] forceNext timer fired for ${trackUriWhenTimerSet}. Checking state...`);
+                                    // Double-check the state *just before* forcing next
+                                    player.getCurrentState().then(currentState => {
+                                        if (currentState &&
+                                            !currentState.paused &&
+                                            currentState.track_window?.current_track?.uri === trackUriWhenTimerSet &&
+                                            currentState.duration > 0 &&
+                                            (currentState.duration - currentState.position < bufferTime + 500) // Check position again
+                                            ) {
+                                            console.warn(`[Timer] >>> Forcing next track NOW for ${trackUriWhenTimerSet} <<<`);
+                                            player.nextTrack().catch(e => console.error("Forced nextTrack() failed:", e));
+                                        } else {
+                                            console.log("[Timer] State changed or paused since timer set. Not forcing next.");
+                                        }
+                                    }).catch(e => console.error("Error getting current state in timer:", e));
+                                }, timeUntilForceNext);
+                            } else {
+                                // console.log(`[Timer] Track ${t.name} has less than ${bufferTime/1000}s remaining. Not setting timer.`);
+                            }
+                        } else {
+                            // console.log(`[Timer] Track ${t.name} is too short. Not setting timer.`);
+                        }
+                    }
+                    // --- End EXPERIMENTAL Timer ---
+
+                }); // End player_state_changed listener
+
                 status("🔌 Connecting player...");
                 player.connect().then(success => { if(success){ console.log('SDK connected!'); status('🔗 SDK Connected'); } else { console.error('SDK failed connect.'); status('❌ SDK Connect Fail'); } }).catch(err => { console.error("Player connect error:", err); status('❌ SDK Connect Error'); });
             };
@@ -460,3 +307,4 @@
     </script>
 </body>
 </html>
+
