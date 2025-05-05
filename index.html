@@ -110,7 +110,7 @@
     #playlistSection li.selected, #trackSection li.playing {
       background: var(--accent);
       color: var(--fg);
-      animation: glow 1.5s ease-in-out infinite;
+      animation: glow 1.5s infinite;
     }
     #playlistSection img {
       width:40px; height:40px; border-radius:4px;
@@ -244,39 +244,66 @@
       document.getElementById('shuffleBtn').onclick   = toggleShuffle;
       document.getElementById('repeatBtn').onclick    = toggleRepeat;
       document.getElementById('sortSelect').onchange  = renderTracks;
+      loadFeaturedPlaylists();
       loadPlaylists();
       loadSDK();
     }
 
-    async function loadPlaylists() {
+async function loadPlaylists() {
   const ul = document.getElementById('playlists');
   ul.innerHTML = '';
 
-  let url = 'https://api.spotify.com/v1/me/playlists?limit=50';
+  // Fetch 50 at a time until there's no more
+  let nextUrl = 'https://api.spotify.com/v1/me/playlists?limit=50';
   const all = [];
-
-  // Fetch page after page until there’s no `next`
-  while (url) {
-    const res  = await fetch(url, {
+  while (nextUrl) {
+    const res  = await fetch(nextUrl, {
       headers: { 'Authorization': 'Bearer ' + access_token }
     });
     const data = await res.json();
     all.push(...data.items);
-    url = data.next; // full URL or null
+    nextUrl = data.next;  // full URL to next page, or null
   }
 
-  // Render them all
-  all.forEach(pl => {
+  // ─────────────────────────────────────────────────────
+//  NEW: Load “Made for You” / Featured Playlists
+async function loadFeaturedPlaylists() {
+  // fetch Spotify’s editorial “Featured Playlists”
+  const data = await api('/browse/featured-playlists?limit=20');
+  const ul   = document.getElementById('playlists');
+
+  // insert a separator
+  const sep = document.createElement('li');
+  sep.textContent = '— Made for You —';
+  sep.style.textAlign = 'center';
+  sep.style.margin = '0.5rem 0';
+  ul.appendChild(sep);
+
+  data.playlists.items.forEach(pl => {
     const li  = document.createElement('li');
     li.dataset.id = pl.id;
     const img = document.createElement('img');
-    img.src = pl.images[0]?.url;
+    img.src = pl.images[0]?.url || '';
     li.appendChild(img);
     li.appendChild(document.createTextNode(pl.name));
     li.onclick = () => loadTracks(pl.id);
     ul.appendChild(li);
   });
-    }
+}
+// ─────────────────────────────────────────────────────
+
+  // Render every playlist
+  all.forEach(pl => {
+    const li = document.createElement('li');
+    li.dataset.id = pl.id;
+    const img = document.createElement('img');
+    img.src = pl.images[0]?.url || '';
+    li.appendChild(img);
+    li.appendChild(document.createTextNode(pl.name));
+    li.onclick = () => loadTracks(pl.id);
+    ul.appendChild(li);
+  });
+}
 
     async function loadTracks(id){
       currentPlaylistId=id;
