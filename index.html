@@ -68,7 +68,7 @@
     }
     #controls button.active {
       background: var(--accent);
-      color: var(--bg);
+      color: var(--fg);
       box-shadow: 0 0 12px var(--accent);
     }
     #controls button:hover { transform: scale(1.1); }
@@ -109,7 +109,7 @@
     }
     #playlistSection li.selected, #trackSection li.playing {
       background: var(--accent);
-      color: var(--fg);
+      color: var(--fg) !important;
       animation: glow 1.5s infinite;
     }
     #playlistSection img {
@@ -216,8 +216,7 @@
       const code=qs.get('code'), state=qs.get('state');
       if(!code) return;
       if(state!==sessionStorage.getItem(STATE_KEY)){
-        status('❌ State mismatch—retry');
-        return;
+        status('❌ State mismatch—retry'); return;
       }
       sessionStorage.removeItem(STATE_KEY);
       const ver=sessionStorage.getItem(VERIFIER_KEY);
@@ -244,89 +243,82 @@
       document.getElementById('shuffleBtn').onclick   = toggleShuffle;
       document.getElementById('repeatBtn').onclick    = toggleRepeat;
       document.getElementById('sortSelect').onchange  = renderTracks;
-      loadFeaturedPlaylists();
-      loadPlaylists();
+      // Clear and then load library + featured
+      const ul = document.getElementById('playlists');
+      ul.innerHTML = '';
+      loadPlaylists().then(loadFeaturedPlaylists).catch(console.error);
       loadSDK();
     }
 
-async function loadPlaylists() {
-  const ul = document.getElementById('playlists');
-  ul.innerHTML = '';
+    async function loadPlaylists() {
+      const ul = document.getElementById('playlists');
+      // Fetch library playlists pages
+      let nextUrl = 'https://api.spotify.com/v1/me/playlists?limit=50';
+      const all = [];
+      while (nextUrl) {
+        const res  = await fetch(nextUrl, {
+          headers: { 'Authorization': 'Bearer ' + access_token }
+        });
+        const data = await res.json();
+        all.push(...data.items);
+        nextUrl = data.next;
+      }
+      // Render library
+      all.forEach(pl => {
+        const li = document.createElement('li');
+        li.dataset.id = pl.id;
+        const img = document.createElement('img');
+        img.src = pl.images[0]?.url || '';
+        li.appendChild(img);
+        li.appendChild(document.createTextNode(pl.name));
+        li.onclick = () => loadTracks(pl.id);
+        ul.appendChild(li);
+      });
+    }
 
-  // Fetch 50 at a time until there's no more
-  let nextUrl = 'https://api.spotify.com/v1/me/playlists?limit=50';
-  const all = [];
-  while (nextUrl) {
-    const res  = await fetch(nextUrl, {
-      headers: { 'Authorization': 'Bearer ' + access_token }
-    });
-    const data = await res.json();
-    all.push(...data.items);
-    nextUrl = data.next;  // full URL to next page, or null
-  }
-
-  // ─────────────────────────────────────────────────────
-//  NEW: Load “Made for You” / Featured Playlists
-async function loadFeaturedPlaylists() {
-  // fetch Spotify’s editorial “Featured Playlists”
-  const data = await api('/browse/featured-playlists?limit=20');
-  const ul   = document.getElementById('playlists');
-
-  // insert a separator
-  const sep = document.createElement('li');
-  sep.textContent = '— Made for You —';
-  sep.style.textAlign = 'center';
-  sep.style.margin = '0.5rem 0';
-  ul.appendChild(sep);
-
-  data.playlists.items.forEach(pl => {
-    const li  = document.createElement('li');
-    li.dataset.id = pl.id;
-    const img = document.createElement('img');
-    img.src = pl.images[0]?.url || '';
-    li.appendChild(img);
-    li.appendChild(document.createTextNode(pl.name));
-    li.onclick = () => loadTracks(pl.id);
-    ul.appendChild(li);
-  });
-}
-// ─────────────────────────────────────────────────────
-
-  // Render every playlist
-  all.forEach(pl => {
-    const li = document.createElement('li');
-    li.dataset.id = pl.id;
-    const img = document.createElement('img');
-    img.src = pl.images[0]?.url || '';
-    li.appendChild(img);
-    li.appendChild(document.createTextNode(pl.name));
-    li.onclick = () => loadTracks(pl.id);
-    ul.appendChild(li);
-  });
-}
+    async function loadFeaturedPlaylists() {
+      const data = await api('/browse/featured-playlists?limit=20');
+      const ul   = document.getElementById('playlists');
+      const sep  = document.createElement('li');
+      sep.textContent = '— Made for You —';
+      sep.style.textAlign = 'center';
+      sep.style.margin = '0.5rem 0';
+      ul.appendChild(sep);
+      data.playlists.items.forEach(pl => {
+        const li = document.createElement('li');
+        li.dataset.id = pl.id;
+        const img = document.createElement('img');
+        img.src = pl.images[0]?.url || '';
+        li.appendChild(img);
+        li.appendChild(document.createTextNode(pl.name));
+        li.onclick = () => loadTracks(pl.id);
+        ul.appendChild(li);
+      });
+    }
 
     async function loadTracks(id){
-      currentPlaylistId=id;
+      currentPlaylistId = id;
       document.querySelectorAll('#playlists li').forEach(li=>
         li.classList.toggle('selected', li.dataset.id===id)
       );
-      const data=await api(`/playlists/${id}/tracks?limit=100`);
+      const data = await api(`/playlists/${id}/tracks?limit=100`);
       playlistItems = data.items.map(i=>({ track:i.track, added_at:i.added_at }));
       renderTracks();
     }
 
     function renderTracks(){
-      const mode=document.getElementById('sortSelect').value;
-      let arr=[...playlistItems];
+      const mode = document.getElementById('sortSelect').value;
+      let arr = [...playlistItems];
       if(mode==='newest') arr.sort((a,b)=>new Date(b.added_at)-new Date(a.added_at));
       if(mode==='oldest') arr.sort((a,b)=>new Date(a.added_at)-new Date(b.added_at));
-      const ul=document.getElementById('tracks'); ul.innerHTML='';
-      arr.forEach(obj=>{
-        const li=document.createElement('li');
-        li.dataset.uri=obj.track.uri;
-        li.textContent=`${obj.track.name} — ${obj.track.artists.map(a=>a.name).join(', ')}`;
+      const ul = document.getElementById('tracks');
+      ul.innerHTML = '';
+      arr.forEach(obj => {
+        const li = document.createElement('li');
+        li.dataset.uri = obj.track.uri;
+        li.textContent = `${obj.track.name} — ${obj.track.artists.map(a=>a.name).join(', ')}`;
         li.style.animationDelay = `${Math.random()*300}ms`;
-        li.onclick = ()=>playTrack(obj.track.uri);
+        li.onclick = () => playTrack(obj.track.uri);
         ul.appendChild(li);
       });
     }
@@ -341,31 +333,31 @@ async function loadFeaturedPlaylists() {
 
     function loadSDK(){
       if(!window.Spotify){
-        const s=document.createElement('script');
-        s.src='https://sdk.scdn.co/spotify-player.js';
+        const s = document.createElement('script');
+        s.src = 'https://sdk.scdn.co/spotify-player.js';
         document.head.appendChild(s);
       }
-      window.onSpotifyWebPlaybackSDKReady=()=>{
-        player=new Spotify.Player({
-          name:'Daddy’s Player',
-          getOAuthToken:cb=>cb(access_token)
+      window.onSpotifyWebPlaybackSDKReady = () => {
+        player = new Spotify.Player({
+          name: 'Daddy’s Player',
+          getOAuthToken: cb => cb(access_token)
         });
-        player.addListener('ready',({device_id})=>{
+        player.addListener('ready', ({ device_id }) => {
           api('/me/player',{method:'PUT',body:JSON.stringify({device_ids:[device_id]})});
           status('🎧 Device Ready');
         });
-        player.addListener('player_state_changed', async st=>{
+        player.addListener('player_state_changed', async st => {
           if(!st) return;
           if(st.paused) player.resume();
-          const t=st.track_window.current_track,
-                next=st.track_window.next_tracks[0];
-          document.getElementById('trackArt').src=t.album.images[0]?.url;
-          document.body.style.setProperty('--bg-image',`url(${t.album.images[0]?.url})`);
-          document.getElementById('trackInfo').textContent=
+          const t = st.track_window.current_track,
+                next = st.track_window.next_tracks[0];
+          document.getElementById('trackArt').src = t.album.images[0]?.url;
+          document.body.style.setProperty('--bg-image', `url(${t.album.images[0]?.url})`);
+          document.getElementById('trackInfo').textContent =
             `${t.name} — ${t.artists.map(a=>a.name).join(', ')}`;
-          document.getElementById('nextTrack').textContent=
-            next ? 'Next ➜ '+next.name : '';
-          document.querySelectorAll('#tracks li').forEach(li=>
+          document.getElementById('nextTrack').textContent =
+            next ? 'Next ➜ ' + next.name : '';
+          document.querySelectorAll('#tracks li').forEach(li =>
             li.classList.toggle('playing', li.dataset.uri===t.uri)
           );
           await updateShuffleRepeat();
@@ -376,18 +368,18 @@ async function loadFeaturedPlaylists() {
 
     async function updateShuffleRepeat(){
       const st = await api('/me/player');
-      document.getElementById('shuffleBtn').classList.toggle('active',st.shuffle_state);
-      document.getElementById('repeatBtn').classList.toggle('active',st.repeat_state!=='off');
+      document.getElementById('shuffleBtn').classList.toggle('active', st.shuffle_state);
+      document.getElementById('repeatBtn').classList.toggle('active', st.repeat_state!=='off');
     }
     async function toggleShuffle(){
       const st = await api('/me/player');
-      await api(`/me/player/shuffle?state=${!st.shuffle_state}`,{method:'PUT'});
+      await api(`/me/player/shuffle?state=${!st.shuffle_state}`, { method:'PUT' });
       updateShuffleRepeat();
     }
     const repStates=['off','context','track']; let repIdx=0;
     async function toggleRepeat(){
-      repIdx=(repIdx+1)%3;
-      await api(`/me/player/repeat?state=${repStates[repIdx]}`,{method:'PUT'});
+      repIdx = (repIdx+1)%3;
+      await api(`/me/player/repeat?state=${repStates[repIdx]}`, { method:'PUT' });
       updateShuffleRepeat();
     }
 
