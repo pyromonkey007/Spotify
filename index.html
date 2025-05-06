@@ -128,18 +128,18 @@
         let playlistItems = [];
         let searchTimeoutId = null;
         let myAppQueue = [];
-        let forceNextTimeoutId = null; // ID for the force next timer
+        let forceNextTimeoutId = null;
 
-        // --- PKCE Helper Functions --- (Unchanged)
+        // --- PKCE Helper Functions ---
         function randStr(l){ const c='ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'; let s='',a=new Uint8Array(l);crypto.getRandomValues(a); a.forEach(i=>s+=c[i%c.length]);return s; }
         function b64url(b){ return btoa(String.fromCharCode(...new Uint8Array(b))).replace(/=+$/,'').replace(/\+/g,'-').replace(/\//g,'_'); }
         async function sha256(m){ return crypto.subtle.digest('SHA-256', new TextEncoder().encode(m)); }
 
-        // --- API Helper --- (Unchanged)
+        // --- API Helper ---
         async function api(path, opts = {}) { const base_url='https://api.spotify.com/v1'; if(!access_token){ console.error("API call attempted without access token for path:",path); status("❌ Error: Not Logged In"); return null; } opts.headers={...(opts.headers||{}),'Authorization':'Bearer '+access_token}; try { const res=await fetch(base_url+path,opts); if(!res.ok){ const b=await res.text().catch(()=>'Could not read error body'); console.error(`API Error ${res.status} on ${path}:`,b); let j={}; try{j=JSON.parse(b);}catch{} if(res.status===401||j?.error?.message?.includes("token expired")){ status("❌ Error: Token Expired. Log in again."); document.getElementById('login').style.display='block'; }else{ status(`❌ API Error: ${j?.error?.message||res.status}`); } throw new Error(j?.error?.message||`Spotify API Error: ${res.status}`); } if(res.status===204||res.headers.get('content-length')==='0'){ return {success:true}; } return await res.json(); } catch(error){ console.error(`Workspace failed for ${path}:`,error); if(!document.getElementById('status').textContent.startsWith('❌')){ status(`❌ Network Error for ${path}`); } return null; } }
         function status(msg) { document.getElementById('status').textContent = msg; }
 
-        // --- Auth Functions --- (Unchanged)
+        // --- Auth Functions ---
         async function redirectToAuth(){ const state=randStr(16),ver=randStr(64); sessionStorage.setItem(STATE_KEY,state); sessionStorage.setItem(VERIFIER_KEY,ver); const chall=b64url(await sha256(ver)); const p=new URLSearchParams({ response_type:'code',client_id,redirect_uri,scope:scopes, state,code_challenge_method:'S256',code_challenge:chall,show_dialog:'true' }); window.location=`https://accounts.spotify.com/authorize?${p.toString()}`; }
         async function handleRedirect(){ const qs=new URLSearchParams(window.location.search), code=qs.get('code'),state=qs.get('state'),error=qs.get('error'); if(error){ status(`❌ Login Error: ${error}`); sessionStorage.removeItem(STATE_KEY); sessionStorage.removeItem(VERIFIER_KEY); return; } if(!code){ loadQueueFromStorage(); renderCustomQueue(); return; } const storedState=sessionStorage.getItem(STATE_KEY); const verifier=sessionStorage.getItem(VERIFIER_KEY); if(state!==storedState||!verifier){ status('❌ State mismatch/verifier missing'); sessionStorage.removeItem(STATE_KEY); sessionStorage.removeItem(VERIFIER_KEY); history.replaceState(null,'',redirect_uri); return; } sessionStorage.removeItem(STATE_KEY); sessionStorage.removeItem(VERIFIER_KEY); const body=new URLSearchParams({ grant_type:'authorization_code',code,redirect_uri, client_id,code_verifier:verifier }); try { const tok=await fetch('https://accounts.spotify.com/api/token',{ method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body }).then(async r=>{ if(!r.ok){ const e=await r.json().catch(()=>({error_description:'Unknown token error'})); throw new Error(e.error_description||`Token fetch failed: ${r.status}`); } return r.json(); }); if(!tok.access_token){ status('❌ Token failed'); return; } access_token=tok.access_token; history.replaceState(null,'',redirect_uri); status('✅ Logged in'); document.getElementById('login').style.display='none'; await initApp(); } catch(err){ console.error('Error fetching token:',err); status(`❌ Token failed: ${err.message}`); } }
 
@@ -147,41 +147,114 @@
         async function initApp() {
             ['prevBtn', 'playPauseBtn', 'nextBtn', 'shuffleBtn', 'repeatBtn']
                 .forEach(id => document.getElementById(id).disabled = false);
-
-            // Attach Listeners
-            // Clear forceNext timer on manual track changes
-            document.getElementById('prevBtn').onclick = () => {
-                 clearTimeout(forceNextTimeoutId); // Clear timer
-                 player?.previousTrack().catch(console.error);
-            }
-            document.getElementById('nextBtn').onclick = () => {
-                 clearTimeout(forceNextTimeoutId); // Clear timer
-                 player?.nextTrack().catch(console.error);
-            };
-            document.getElementById('playPauseBtn').onclick = () => player?.togglePlay().catch(console.error); // Pause/resume handled in state_changed timer logic
+            document.getElementById('prevBtn').onclick = () => { clearTimeout(forceNextTimeoutId); player?.previousTrack().catch(console.error); }
+            document.getElementById('nextBtn').onclick = () => { clearTimeout(forceNextTimeoutId); player?.nextTrack().catch(console.error); };
+            document.getElementById('playPauseBtn').onclick = () => player?.togglePlay().catch(console.error);
             document.getElementById('shuffleBtn').onclick = toggleShuffle;
             document.getElementById('repeatBtn').onclick = toggleRepeat;
             document.getElementById('sortSelect').onchange = renderTracks;
             document.getElementById('toggleSearchBtn').onclick = toggleSearchQueueSection;
             document.getElementById('searchInput').oninput = handleSearchInput;
             document.getElementById('clearQueueBtn').onclick = clearMyAppQueue;
-
-            // Load initial data
-            loadQueueFromStorage();
-            renderCustomQueue();
+            loadQueueFromStorage(); renderCustomQueue();
             document.getElementById('playlists').innerHTML = '<li>Loading playlists...</li>';
             await loadPlaylists();
             loadSDK();
         }
 
-        // --- UI Toggles --- (Unchanged)
+        // --- UI Toggles ---
         function toggleSearchQueueSection() { const section = document.getElementById('searchAndQueueWrapper'); const isHidden = section.style.display === 'none'; section.style.display = isHidden ? 'block' : 'none'; if (isHidden) { document.getElementById('searchInput').focus(); } }
 
-        // --- Library Loading --- (Unchanged)
-        async function loadPlaylists() { const ul=document.getElementById('playlists'); ul.innerHTML='<li>⏳ Loading your playlists...</li>'; let url='/me/playlists?limit=50'; let allPlaylists=[]; let fetchedCount=0; const maxPlaylistsToFetch=200; try { while(url&&fetchedCount<maxPlaylistsToFetch){ const dat=await api(url); if(dat===null)break; if(!dat||!dat.items){ break; } allPlaylists.push(...dat.items); fetchedCount+=dat.items.length; url=dat.next?dat.next.replace('https://api.spotify.com/v1',''):null; } ul.innerHTML=''; if(allPlaylists.length===0){ ul.innerHTML='<li>No playlists found.</li>'; }else{ allPlaylists.forEach(pl=>{ const li=document.createElement('li'); li.dataset.id=pl.id; const img=document.createElement('img'); img.src=pl.images?.[0]?.url||'placeholder.png'; img.alt=pl.name; img.loading='lazy'; li.appendChild(img); li.appendChild(document.createTextNode(pl.name)); li.onclick=()=>loadTracks(pl.id); ul.appendChild(li); }); } } catch(e){ console.error("Error during playlist loading loop:",e); ul.innerHTML='<li>Error loading playlists.</li>'; } }
+        // --- Library Loading ---
+        async function loadPlaylists() {
+            const ul = document.getElementById('playlists');
+            ul.innerHTML = '<li>⏳ Loading your playlists...</li>';
+            let url = '/me/playlists?limit=50'; // Initial URL for playlists
+            let allPlaylists = [];
+            let fetchedCount = 0;
+            const maxPlaylistsToFetch = 200; // Safety limit
 
-        // --- Track Loading & Rendering --- (Unchanged - Includes pagination & logging)
-        async function loadTracks(id){ currentPlaylistId=id; document.querySelectorAll('#playlists li').forEach(li=> li.classList.toggle('selected',li.dataset.id===id) ); status(`⏳ Loading tracks (0)...`); const ul=document.getElementById('tracks'); ul.innerHTML='<li>⏳ Loading tracks...</li>'; playlistItems=[]; let fetchedCount=0; let url=`/playlists/${id}/tracks?limit=100&fields=next,items(added_at,track(name,uri,artists(name),album(images)))`; console.log("Initial Track Load URL:",url); try{ while(url){ console.log("Fetching track page:",url); const data=await api(url); if(data===null){ console.error("API call failed for track page:",url); status(`⚠️ Error loading some tracks.`); break; } const validItems=(data.items||[]).filter(item=>item&&item.track).map(i=>({track:i.track,added_at:i.added_at})); playlistItems.push(...validItems); fetchedCount+=validItems.length; console.log(`Workspaceed ${validItems.length} items, Total: ${fetchedCount}`); status(`⏳ Loading tracks (${fetchedCount})...`); url=dat.next?dat.next.replace('https://api.spotify.com/v1',''):null; console.log("Next track page URL:",url); } console.log(`Finished loading tracks. Total: ${playlistItems.length}`); if(document.getElementById('status').textContent.startsWith('⏳')){ status(`✅ Tracks loaded (${playlistItems.length} items).`); } renderTracks(); } catch(e){ console.error("Unexpected error during track loading loop:",e); ul.innerHTML='<li>❌ Unexpected error loading tracks.</li>'; renderTracks(); } }
+            try {
+                while (url && fetchedCount < maxPlaylistsToFetch) {
+                    const dat = await api(url);
+                    if (dat === null) {
+                        status('⚠️ Error loading some playlists.'); break;
+                    }
+                    if (!dat || !dat.items) { break; } // No items or invalid data
+
+                    allPlaylists.push(...dat.items);
+                    fetchedCount += dat.items.length;
+                    // ** CORRECTED PAGINATION FOR PLAYLISTS **
+                    url = dat.next ? dat.next.replace('https://api.spotify.com/v1', '') : null;
+                }
+                ul.innerHTML = ''; // Clear loading message
+                if (allPlaylists.length === 0) {
+                    ul.innerHTML = '<li>No playlists found.</li>';
+                } else {
+                    allPlaylists.forEach(pl => {
+                        const li = document.createElement('li');
+                        li.dataset.id = pl.id;
+                        const img = document.createElement('img');
+                        img.src = pl.images?.[0]?.url || 'placeholder.png';
+                        img.alt = pl.name;
+                        img.loading = 'lazy';
+                        li.appendChild(img);
+                        li.appendChild(document.createTextNode(pl.name));
+                        li.onclick = () => loadTracks(pl.id);
+                        ul.appendChild(li);
+                    });
+                }
+            } catch (e) {
+                console.error("Error during playlist loading loop:", e);
+                ul.innerHTML = '<li>Error loading playlists.</li>';
+            }
+        }
+
+        // --- Track Loading & Rendering ---
+        async function loadTracks(id) {
+            currentPlaylistId = id;
+            document.querySelectorAll('#playlists li').forEach(li =>
+                li.classList.toggle('selected', li.dataset.id === id)
+            );
+            status(`⏳ Loading tracks (0)...`);
+            const ul = document.getElementById('tracks');
+            ul.innerHTML = '<li>⏳ Loading tracks...</li>';
+            playlistItems = []; // Reset
+            let fetchedCount = 0;
+            let url = `/playlists/${id}/tracks?limit=100&fields=next,items(added_at,track(name,uri,artists(name),album(images)))`;
+            console.log("Initial Track Load URL:", url);
+
+            try {
+                while (url) {
+                    console.log("Fetching track page:", url);
+                    const data = await api(url);
+                    if (data === null) {
+                        console.error("API call failed for track page:", url);
+                        status(`⚠️ Error loading some tracks.`);
+                        break;
+                    }
+                    const validItems = (data.items || [])
+                        .filter(item => item && item.track)
+                        .map(i => ({ track: i.track, added_at: i.added_at }));
+                    playlistItems.push(...validItems);
+                    fetchedCount += validItems.length;
+                    console.log(`Workspaceed ${validItems.length} items, Total: ${fetchedCount}`);
+                    status(`⏳ Loading tracks (${fetchedCount})...`);
+                    // ** CORRECTED PAGINATION FOR TRACKS **
+                    url = data.next ? data.next.replace('https://api.spotify.com/v1', '') : null;
+                    console.log("Next track page URL:", url);
+                }
+                console.log(`Finished loading tracks. Total: ${playlistItems.length}`);
+                if (document.getElementById('status').textContent.startsWith('⏳')) {
+                    status(`✅ Tracks loaded (${playlistItems.length} items).`);
+                }
+                renderTracks();
+            } catch (e) {
+                console.error("Unexpected error during track loading loop:", e);
+                ul.innerHTML = '<li>❌ Unexpected error loading tracks.</li>';
+                renderTracks();
+            }
+        }
         function renderTracks(){ const mode=document.getElementById('sortSelect').value; let arr=[...playlistItems]; const ul=document.getElementById('tracks'); ul.innerHTML=''; if(arr.length===0){ ul.innerHTML='<li>No tracks found or loaded.</li>'; return; } try { if(mode==='newest')arr.sort((a,b)=>(new Date(b.added_at).getTime()||0)-(new Date(a.added_at).getTime()||0)); if(mode==='oldest')arr.sort((a,b)=>(new Date(a.added_at).getTime()||0)-(new Date(b.added_at).getTime()||0)); } catch(e){ console.warn("Error sorting tracks by date:",e); } arr.forEach((obj,index)=>{ if(!obj?.track?.artists){ console.warn("Skipping invalid track object:",obj); return; } const li=document.createElement('li'); li.dataset.uri=obj.track.uri; li.textContent=`${obj.track.name} — ${obj.track.artists.map(a=>a.name).join(', ')}`; li.style.animationDelay=`${index*30}ms`; li.onclick=()=>playTrack(obj.track.uri,index); ul.appendChild(li); }); }
 
         // Play Track - Clears forceNext timer
@@ -205,7 +278,7 @@
         function saveQueueToStorage() { try { localStorage.setItem(MY_QUEUE_KEY, JSON.stringify(myAppQueue)); } catch (e) { console.error("Failed to save queue to localStorage:", e); status("⚠️ Could not save queue."); } }
         function loadQueueFromStorage() { try { const savedQueue = localStorage.getItem(MY_QUEUE_KEY); if (savedQueue) { myAppQueue = JSON.parse(savedQueue); console.log(`Loaded ${myAppQueue.length} items from saved queue.`); } else { myAppQueue = []; } } catch (e) { console.error("Failed to load or parse queue from localStorage:", e); myAppQueue = []; status("⚠️ Could not load saved queue."); } }
 
-        // --- Web Playback SDK Initialization and Listeners ---
+        // --- Web Playback SDK Initialization and Listeners --- (Includes Force Next Timer)
         function loadSDK() {
              if (document.querySelector('script[src="https://sdk.scdn.co/spotify-player.js"]') || window.Spotify?.Player) { if (player&&typeof player.connect==='function'&&!player.isConnected?.()) { player.connect().catch(console.error); } return; }
             const s=document.createElement('script'); s.src='https://sdk.scdn.co/spotify-player.js'; s.async=true; document.head.appendChild(s);
@@ -215,96 +288,60 @@
                 ['initialization_error', 'authentication_error', 'account_error', 'playback_error']
                     .forEach(evt => player.addListener(evt, ({ message }) => { console.error(`SDK ${evt}:`, message); status(`❌ SDK Error: ${evt}`); if (evt === 'authentication_error') { document.getElementById('login').style.display='block'; access_token=null; ['prevBtn','playPauseBtn','nextBtn','shuffleBtn','repeatBtn'].forEach(id=>document.getElementById(id).disabled=true); clearTimeout(forceNextTimeoutId);} if (evt === 'account_error') { alert("Spotify Premium required."); } }));
                 player.addListener('ready', ({ device_id }) => { console.log('SDK Player Ready', device_id); status('🎧 Device Ready, selecting...'); api('/me/player', { method:'PUT', body: JSON.stringify({ device_ids: [device_id], play: false }) }).then(r => { if (r?.success) status('🎧 Device Ready & Selected'); else status('⚠️ Device Ready, failed select.'); }).catch(()=>{}); });
-                player.addListener('not_ready', ({ device_id }) => { console.log('Device Offline', device_id); status('🔌 Device Offline'); clearTimeout(forceNextTimeoutId); }); // Clear timer if device goes offline
+                player.addListener('not_ready', ({ device_id }) => { console.log('Device Offline', device_id); status('🔌 Device Offline'); clearTimeout(forceNextTimeoutId); });
 
-                // Player State Changed - Includes EXPERIMENTAL Force Next Timer
                 player.addListener('player_state_changed', (st) => {
                      console.log("Player state changed:", st);
-                     clearTimeout(forceNextTimeoutId); // Clear any previous timer first
+                     clearTimeout(forceNextTimeoutId);
 
-                    if (!st) {
-                        status('ℹ️ Player state unavailable (Inactive)');
-                        // ... (reset UI as before) ...
-                        document.getElementById('playPauseBtn').textContent='▶️ Play/Pause'; document.getElementById('trackArt').src=''; document.getElementById('trackInfo').textContent='Not playing'; document.getElementById('nextTrack').textContent=''; document.body.style.setProperty('--bg-image',''); document.querySelectorAll('#tracks li.playing').forEach(li => li.classList.remove('playing'));
-                        return;
-                    }
-
-                    // Update status based on playing/paused state, avoiding override
-                    const currentStatus = document.getElementById('status').textContent;
-                    if (!currentStatus.includes('❌') && !currentStatus.includes('⚠️') && !currentStatus.includes('⏳') && !currentStatus.includes('✅')) {
-                        if (st.paused) { status("⏸️ Paused"); } else { status("▶️ Playing"); }
-                    }
-
-                    // Update Now Playing UI, Controls, Highlighting (as before)
+                    if (!st) { status('ℹ️ Player state unavailable (Inactive)'); document.getElementById('playPauseBtn').textContent='▶️ Play/Pause'; document.getElementById('trackArt').src=''; document.getElementById('trackInfo').textContent='Not playing'; document.getElementById('nextTrack').textContent=''; document.body.style.setProperty('--bg-image',''); document.querySelectorAll('#tracks li.playing').forEach(li => li.classList.remove('playing')); return; }
+                    const currentStatus = document.getElementById('status').textContent; if (!currentStatus.includes('❌') && !currentStatus.includes('⚠️') && !currentStatus.includes('⏳') && !currentStatus.includes('✅')) { if (st.paused) { status("⏸️ Paused"); } else { status("▶️ Playing"); } }
                     const t = st.track_window.current_track; const next = st.track_window.next_tracks[0];
                     if (t) { document.getElementById('trackArt').src = t.album.images[0]?.url || 'placeholder.png'; document.body.style.setProperty('--bg-image', `url(${t.album.images[0]?.url})`); document.getElementById('trackInfo').textContent = `${t.name} — ${t.artists.map(a => a.name).join(', ')}`; } else { document.getElementById('trackArt').src = ''; document.getElementById('trackInfo').textContent = 'No track loaded'; document.body.style.setProperty('--bg-image', ''); }
                     document.getElementById('nextTrack').textContent = next ? `Next ➜ ${next.name}` : '';
                     document.getElementById('playPauseBtn').textContent = st.paused ? '▶️ Play' : '⏸️ Pause'; document.getElementById('shuffleBtn').classList.toggle('active', st.shuffle); const repeatMode = st.repeat_mode; document.getElementById('repeatBtn').classList.toggle('active', repeatMode !== 0); repIdx = repeatMode; document.getElementById('prevBtn').disabled = !st.track_window.previous_tracks.length; document.getElementById('nextBtn').disabled = !st.track_window.next_tracks.length;
                     document.querySelectorAll('#tracks li').forEach(li => { const isPlaying = t && li.dataset.uri === t.uri; li.classList.toggle('playing', isPlaying); });
 
-
                     // --- EXPERIMENTAL: Force Next Track Timer ---
-                    // WARNING: This is complex and may cause instability (double skips, etc.)
-                    // Only proceed if not paused and track data is available
                     if (!st.paused && t && st.duration > 0) {
-                        const duration = st.duration;
-                        const position = st.position;
-                        const bufferTime = 2000; // Try to trigger 2 seconds before end
-
-                        if (duration > bufferTime + 500) { // Only if track is reasonably long
+                        const duration = st.duration; const position = st.position; const bufferTime = 2000;
+                        if (duration > bufferTime + 500) {
                             const timeUntilForceNext = duration - position - bufferTime;
-
-                            if (timeUntilForceNext > 0) { // Only schedule if time remaining is > buffer
+                            if (timeUntilForceNext > 0) {
                                 console.log(`[Timer] Scheduling forceNext for ${t.name} in ${timeUntilForceNext}ms`);
-                                const trackUriWhenTimerSet = t.uri; // Capture URI at time of setting timer
-
+                                const trackUriWhenTimerSet = t.uri;
                                 forceNextTimeoutId = setTimeout(() => {
                                     console.log(`[Timer] forceNext timer fired for ${trackUriWhenTimerSet}. Checking state...`);
-                                    // Double-check the state *just before* forcing next
                                     player.getCurrentState().then(currentState => {
-                                        if (currentState &&
-                                            !currentState.paused &&
-                                            currentState.track_window?.current_track?.uri === trackUriWhenTimerSet &&
-                                            currentState.duration > 0 &&
-                                            (currentState.duration - currentState.position < bufferTime + 500) // Check position again
-                                            ) {
+                                        if (currentState && !currentState.paused && currentState.track_window?.current_track?.uri === trackUriWhenTimerSet && currentState.duration > 0 && (currentState.duration - currentState.position < bufferTime + 500) ) {
                                             console.warn(`[Timer] >>> Forcing next track NOW for ${trackUriWhenTimerSet} <<<`);
                                             player.nextTrack().catch(e => console.error("Forced nextTrack() failed:", e));
-                                        } else {
-                                            console.log("[Timer] State changed or paused since timer set. Not forcing next.");
-                                        }
+                                        } else { console.log("[Timer] State changed or paused since timer set. Not forcing next."); }
                                     }).catch(e => console.error("Error getting current state in timer:", e));
                                 }, timeUntilForceNext);
-                            } else {
-                                // console.log(`[Timer] Track ${t.name} has less than ${bufferTime/1000}s remaining. Not setting timer.`);
                             }
-                        } else {
-                            // console.log(`[Timer] Track ${t.name} is too short. Not setting timer.`);
                         }
                     }
                     // --- End EXPERIMENTAL Timer ---
-
-                }); // End player_state_changed listener
-
+                });
                 status("🔌 Connecting player...");
                 player.connect().then(success => { if(success){ console.log('SDK connected!'); status('🔗 SDK Connected'); } else { console.error('SDK failed connect.'); status('❌ SDK Connect Fail'); } }).catch(err => { console.error("Player connect error:", err); status('❌ SDK Connect Error'); });
             };
         }
 
-        // --- Control Button Helpers --- (Unchanged)
+        // --- Control Button Helpers ---
         async function updateShuffleRepeat(){ try { const st=await api('/me/player'); if(st&&typeof st.shuffle_state!=='undefined'){ document.getElementById('shuffleBtn').classList.toggle('active',st.shuffle_state); const crs=st.repeat_state||'off'; document.getElementById('repeatBtn').classList.toggle('active',crs!=='off'); repIdx=repStates.indexOf(crs); if(repIdx===-1)repIdx=0; } } catch(e){} }
-        async function toggleShuffle(){ try { const btn=document.getElementById('shuffleBtn'); const newState=!btn.classList.contains('active'); const r=await api(`/me/player/shuffle?state=${newState}`,{method:'PUT'}); if(r){ btn.classList.toggle('active',newState); } } catch(e){} }
+        async function toggleShuffle(){ try { clearTimeout(forceNextTimeoutId); const btn=document.getElementById('shuffleBtn'); const newState=!btn.classList.contains('active'); const r=await api(`/me/player/shuffle?state=${newState}`,{method:'PUT'}); if(r){ btn.classList.toggle('active',newState); } } catch(e){} }
         const repStates=['off','context','track']; let repIdx=0;
-        async function toggleRepeat(){ try { repIdx=(repIdx+1)%3; const newState=repStates[repIdx]; const r=await api(`/me/player/repeat?state=${newState}`,{method:'PUT'}); if(r){ document.getElementById('repeatBtn').classList.toggle('active',newState!=='off'); } } catch(e){} }
+        async function toggleRepeat(){ try { clearTimeout(forceNextTimeoutId); const btn=document.getElementById('repeatBtn'); repIdx=(repIdx+1)%3; const newState=repStates[repIdx]; const r=await api(`/me/player/repeat?state=${newState}`,{method:'PUT'}); if(r){ document.getElementById('repeatBtn').classList.toggle('active',newState!=='off'); } } catch(e){} }
 
-        // --- Global Unhandled Rejection Handler --- (Unchanged)
+        // --- Global Unhandled Rejection Handler ---
         window.addEventListener('unhandledrejection',e=>{ if(e.reason&&e.reason.name==='CloudPlaybackClientError'){ e.preventDefault(); console.warn('Ignored CloudPlaybackClientError:',e.reason.message); }else{ console.error("Unhandled Rejection:",e.reason||e); status("⚠️ Unexpected error."); } });
 
-        // --- Initial Setup --- (Unchanged)
+        // --- Initial Setup ---
         document.getElementById('login').onclick = redirectToAuth;
-        window.addEventListener('load', handleRedirect); // handleRedirect now calls loadQueueFromStorage
+        window.addEventListener('load', handleRedirect);
 
     </script>
 </body>
 </html>
-
